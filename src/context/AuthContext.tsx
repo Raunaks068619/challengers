@@ -95,10 +95,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (initialized.current) return;
             initialized.current = true;
 
+            console.log("Auth: Initializing session...");
+            console.log("Auth: Supabase URL present?", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+
             try {
                 // Just check session. Supabase client handles the code exchange automatically
                 // because we re-enabled detectSessionInUrl.
+                console.log("Auth: Calling getSession...");
                 const { data: { session }, error } = await supabase.auth.getSession();
+                console.log("Auth: getSession result:", session ? "Session found" : "No session", error);
+
                 if (error) throw error;
 
                 setUser(session?.user ?? null);
@@ -119,10 +125,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 }
             } catch (err) {
-                console.log("Auth init error", err);
+                console.error("Auth: Init error", err);
                 setUser(null);
                 setUserProfile(null);
             } finally {
+                console.log("Auth: Loading complete. Setting loading=false");
                 setLoading(false);
             }
         };
