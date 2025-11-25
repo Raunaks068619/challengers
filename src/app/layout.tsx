@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
 import StoreProvider from "./StoreProvider";
+import { Suspense } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,10 +31,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <StoreProvider>
-          <AuthProvider>
-            {children}
-            <Toaster position="top-center" theme="dark" />
-          </AuthProvider>
+          <Suspense fallback={null}>
+            <AuthProvider>
+              {children}
+              <Toaster position="top-center" theme="dark" />
+            </AuthProvider>
+          </Suspense>
         </StoreProvider>
       </body>
     </html>
