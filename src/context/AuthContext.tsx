@@ -161,16 +161,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     }, []);
 
-    // Reload if 'code' param exists after loading to ensure clean state
-    useEffect(() => {
-        if (!loading) {
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('code')) {
-                console.log("Auth code detected after loading. Reloading to clear...");
-                window.location.href = window.location.origin + window.location.pathname;
-            }
-        }
-    }, [loading]);
 
     const signInWithGoogle = async () => {
         return await supabase.auth.signInWithOAuth({
