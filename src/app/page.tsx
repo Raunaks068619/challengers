@@ -1,65 +1,107 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import AuthGuard from "@/components/AuthGuard";
+import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { useGetProfileQuery, useGetActiveChallengesQuery } from "@/lib/features/api/apiSlice";
+import { supabase } from "@/lib/supabase";
+
+import { checkMissedLogs } from "@/lib/gamification";
+
+export default function Dashboard() {
+  const { user } = useAuth();
+
+  // RTK Query Hooks
+  const { data: userProfile, isLoading: profileLoading } = useGetProfileQuery(user?.id || '', {
+    skip: !user?.id,
+  });
+
+  const { data: activeChallenges = [], isLoading: challengesLoading } = useGetActiveChallengesQuery(user?.id || '', {
+    skip: !user?.id,
+  });
+
+  const loading = profileLoading || challengesLoading;
+
+  useEffect(() => {
+    if (user) {
+      // Run lazy check for missed logs
+      checkMissedLogs(user.id);
+    }
+  }, [user]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="min-h-screen bg-zinc-950 text-white p-4 pb-20">
+        <header className="flex justify-between items-center mb-8 pt-4">
+          <div>
+            <h1 className="text-2xl font-bold">Hello, {userProfile?.display_name?.split(' ')[0]}</h1>
+            <p className="text-zinc-400 text-sm">Ready for a challenge?</p>
+          </div>
+          <Link href="/profile" className="h-10 w-10 rounded-full bg-zinc-800 overflow-hidden border border-zinc-700 block">
+            {userProfile?.photo_url ? (
+              <img src={userProfile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-zinc-500">?</div>
+            )}
+          </Link>
+        </header>
+
+        <main className="space-y-6">
+          {/* Gamification Metrics */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <p className="text-zinc-400 text-xs mb-1">Current Points</p>
+              <p className="text-2xl font-bold text-indigo-400">{userProfile?.current_points || 0}</p>
+            </div>
+            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <p className="text-zinc-400 text-xs mb-1">Total Lost (Treat Pool)</p>
+              <p className="text-2xl font-bold text-red-400">{userProfile?.total_lost || 0}</p>
+            </div>
+            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <p className="text-zinc-400 text-xs mb-1">Active Challenges</p>
+              <p className="text-2xl font-bold text-white">{activeChallenges.length}</p>
+            </div>
+            <div className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+              <p className="text-zinc-400 text-xs mb-1">Total Earned</p>
+              <p className="text-2xl font-bold text-green-400">{userProfile?.total_earned || 0}</p>
+            </div>
+          </div>
+
+          {/* Active Challenges */}
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Active Challenges</h2>
+              <Link href="/challenges/create" className="text-indigo-400 text-sm hover:text-indigo-300">
+                + New
+              </Link>
+            </div>
+
+            {loading ? (
+              <p className="text-zinc-500 text-sm">Loading challenges...</p>
+            ) : activeChallenges.length === 0 ? (
+              <div className="bg-zinc-900/50 rounded-2xl p-8 text-center border border-zinc-800 border-dashed">
+                <p className="text-zinc-500 mb-4 text-sm">No active challenges found.</p>
+                <Link href="/challenges/create" className="inline-block px-4 py-2 bg-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20">
+                  Create Challenge
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {activeChallenges.map((ch) => (
+                  <Link key={ch.id} href={`/challenges/${ch.id}`} className="block bg-zinc-900 rounded-xl p-4 border border-zinc-800 hover:border-indigo-500 transition-colors">
+                    <h3 className="font-medium">{ch.title}</h3>
+                    <div className="flex gap-4 mt-2 text-sm text-zinc-400">
+                      <span>{ch.challenge_participants?.[0]?.count || 0} Participants</span>
+                      <span>{ch.time_window_start} - {ch.time_window_end}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </AuthGuard>
   );
 }
