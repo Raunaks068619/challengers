@@ -98,6 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("Auth: Initializing session...");
             console.log("Auth: Supabase URL present?", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 
+            // Safety timeout: If auth takes longer than 5s, force loading false
+            const timeoutId = setTimeout(() => {
+                if (loading) {
+                    console.warn("Auth: Initialization timed out. Forcing loading=false");
+                    setLoading(false);
+                }
+            }, 5000);
+
             try {
                 // Just check session. Supabase client handles the code exchange automatically
                 // because we re-enabled detectSessionInUrl.
@@ -129,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null);
                 setUserProfile(null);
             } finally {
+                clearTimeout(timeoutId);
                 console.log("Auth: Loading complete. Setting loading=false");
                 setLoading(false);
             }
