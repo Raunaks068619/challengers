@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface AuthContextType {
     user: User | null;
@@ -25,14 +25,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [userProfile, setUserProfile] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
-
     const router = useRouter();
+    const params = useSearchParams();
+
 
     const initialized = useRef(false);
 
     useEffect(() => {
         const upsertProfile = async (u: User) => {
             console.log("Checking profile for:", u.id);
+
+            if (params.get("code")) {
+                console.log("Params:", params.get("code"));
+                router.push('/');
+                router.refresh();
+            }
 
             // 1. Check if profile exists
             const { data: existing, error: fetchError } = await supabase
@@ -98,14 +105,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("Auth: Initializing session...");
             console.log("Auth: Supabase URL present?", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 
-            // Safety timeout: If auth takes longer than 5s, force loading false
-            const timeoutId = setTimeout(() => {
-                if (loading) {
-                    console.warn("Auth: Initialization timed out. Forcing loading=false");
-                    setLoading(false);
-                }
-            }, 5000);
-
             try {
                 // Just check session. Supabase client handles the code exchange automatically
                 // because we re-enabled detectSessionInUrl.
@@ -129,7 +128,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const returnUrl = sessionStorage.getItem("returnUrl");
                     if (returnUrl) {
                         sessionStorage.removeItem("returnUrl");
-                        router.push(decodeURIComponent(returnUrl));
+                        // Only redirect if it's a challenge page
+                        if (returnUrl.includes("/challenge")) {
+                            router.push(decodeURIComponent(returnUrl));
+                        }
                     }
                 }
             } catch (err) {
@@ -137,7 +139,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null);
                 setUserProfile(null);
             } finally {
-                clearTimeout(timeoutId);
                 console.log("Auth: Loading complete. Setting loading=false");
                 setLoading(false);
             }
