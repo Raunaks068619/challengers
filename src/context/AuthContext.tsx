@@ -35,12 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const upsertProfile = async (u: User) => {
             console.log("Checking profile for:", u.id);
 
-            if (params.get("code")) {
-                console.log("Params:", params.get("code"));
-                router.push('/');
-                router.refresh();
-            }
-
             // 1. Check if profile exists
             const { data: existing, error: fetchError } = await supabase
                 .from("profiles")
@@ -105,6 +99,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("Auth: Initializing session...");
             console.log("Auth: Supabase URL present?", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
 
+            // Safety timeout: If auth takes longer than 5s, force loading false
+            const timeoutId = setTimeout(() => {
+                if (loading) {
+                    console.warn("Auth: Initialization timed out. Forcing loading=false");
+                    setLoading(false);
+                }
+            }, 5000);
+
             try {
                 // Just check session. Supabase client handles the code exchange automatically
                 // because we re-enabled detectSessionInUrl.
@@ -139,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null);
                 setUserProfile(null);
             } finally {
+                clearTimeout(timeoutId);
                 console.log("Auth: Loading complete. Setting loading=false");
                 setLoading(false);
             }
@@ -177,6 +180,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
 
     }, []);
+
+    // Reload if 'code' param exists after loading to ensure clean state
+    useEffect(() => {
+        if (!loading) {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('code')) {
+                console.log("Auth code detected after loading. Reloading to clear...");
+                window.location.href = window.location.origin + window.location.pathname;
+            }
+        }
+    }, [loading]);
 
 
     const signInWithGoogle = async () => {
