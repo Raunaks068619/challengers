@@ -191,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Redirect to home if 'code' param exists to clean URL
     useEffect(() => {
-        if (!loading) {
+        if (loading) {
             const params = new URLSearchParams(window.location.search);
             if (params.has('code')) {
                 console.log("Auth code detected. Redirecting to home...");
