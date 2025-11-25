@@ -51,6 +51,12 @@ export default function ChallengeDetailsPage() {
         try {
             await joinChallenge({ challengeId: challenge.id, userId: user.id }).unwrap();
             toast.success("Joined challenge! +500 pts");
+
+            // Clear auto_join param to prevent loops
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('auto_join');
+            window.history.replaceState({}, '', newUrl.toString());
+
         } catch (error) {
             console.error(error);
             toast.error("Failed to join");
