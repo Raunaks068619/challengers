@@ -15,6 +15,7 @@ export interface Challenge {
     location_lat?: number | null;
     location_lng?: number | null;
     location_radius?: number | null;
+    join_code?: string;
 }
 
 export interface UserProfile {

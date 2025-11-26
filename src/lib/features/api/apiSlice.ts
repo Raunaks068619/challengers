@@ -94,15 +94,45 @@ export const apiSlice = createApi({
             },
             invalidatesTags: ['Challenge', 'Participant'],
         }),
+        joinChallengeByCode: builder.mutation<string, { code: string; userId: string }>({
+            queryFn: async ({ code, userId }) => {
+                // 1. Find Challenge
+                const { data: challenge, error: findError } = await supabase
+                    .from('challenges')
+                    .select('id')
+                    .eq('join_code', code)
+                    .single();
+
+                if (findError || !challenge) return { error: "Invalid code or challenge not found" };
+
+                // 2. Join Challenge
+                const { error: joinError } = await supabase
+                    .from('challenge_participants')
+                    .upsert({
+                        challenge_id: challenge.id,
+                        user_id: userId,
+                        current_points: 500,
+                        is_active: true
+                    });
+
+                if (joinError) return { error: joinError.message };
+                return { data: challenge.id };
+            },
+            invalidatesTags: ['Challenge', 'Participant'],
+        }),
         createChallenge: builder.mutation<string, { challenge: Partial<Challenge>; userId: string }>({
             queryFn: async ({ challenge, userId }) => {
+                // Generate random 6-char code
+                const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
                 // 1. Create Challenge
                 const { data: newChallenge, error: cError } = await supabase
                     .from('challenges')
                     .insert({
                         ...challenge,
                         creator_id: userId,
-                        status: 'active'
+                        status: 'active',
+                        join_code: joinCode
                     })
                     .select()
                     .single();
@@ -232,5 +262,6 @@ export const {
     useJoinChallengeMutation,
     useCreateChallengeMutation,
     usePerformCheckInMutation,
-    useGetUserChallengeLogsQuery
+    useGetUserChallengeLogsQuery,
+    useJoinChallengeByCodeMutation
 } = apiSlice;
