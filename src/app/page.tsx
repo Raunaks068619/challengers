@@ -100,6 +100,22 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold">Active Challenges</h2>
             </div>
 
+            {/* Actions Row */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <button
+                onClick={() => setShowJoinModal(true)}
+                className="py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors text-zinc-300"
+              >
+                Join with Code
+              </button>
+              <Link
+                href="/challenges/create"
+                className="py-3 bg-indigo-600 rounded-xl text-sm font-medium text-center hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+              >
+                + New Challenge
+              </Link>
+            </div>
+
             {loading ? (
               <p className="text-zinc-500 text-sm">Loading challenges...</p>
             ) : (
@@ -119,22 +135,6 @@ export default function Dashboard() {
                     </Link>
                   ))
                 )}
-
-                {/* Actions Row */}
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  <button
-                    onClick={() => setShowJoinModal(true)}
-                    className="py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors text-zinc-300"
-                  >
-                    Join with Code
-                  </button>
-                  <Link
-                    href="/challenges/create"
-                    className="py-3 bg-indigo-600 rounded-xl text-sm font-medium text-center hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
-                  >
-                    + New Challenge
-                  </Link>
-                </div>
               </div>
             )}
           </div>
