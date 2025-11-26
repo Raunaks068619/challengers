@@ -34,45 +34,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const STORAGE_KEY_USER = 'challengers_user';
     const STORAGE_KEY_PROFILE = 'challengers_profile';
 
-    // 1. Load from LocalStorage on Mount (Optimistic Load)
+    // 1. Initialization Effect
     useEffect(() => {
-        try {
-            const cachedUser = localStorage.getItem(STORAGE_KEY_USER);
-            const cachedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+        const params = new URLSearchParams(window.location.search);
+        const hasCode = params.has('code');
 
-            if (cachedUser) {
-                console.log("Auth: Found cached user");
-                setUser(JSON.parse(cachedUser));
-                if (cachedProfile) {
-                    setUserProfile(JSON.parse(cachedProfile));
+        // Helper to load from storage
+        const loadFromStorage = () => {
+            try {
+                const cachedUser = localStorage.getItem(STORAGE_KEY_USER);
+                const cachedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+
+                if (cachedUser) {
+                    console.log("Auth: Found cached user");
+                    const parsedUser = JSON.parse(cachedUser);
+                    setUser(parsedUser);
+
+                    if (cachedProfile) {
+                        setUserProfile(JSON.parse(cachedProfile));
+                        // Only stop loading if we have both (or if we decide user is enough)
+                        // To prevent "No Profile" flash, we wait for profile if user exists.
+                        setLoading(false);
+                    } else {
+                        // User exists but no profile? Keep loading until network fetch
+                        console.log("Auth: Cached user found but no profile. Keeping loading true.");
+                    }
+                } else {
+                    // No user in storage, stop loading (show login)
+                    setLoading(false);
                 }
-                setLoading(false); // Immediate load
+            } catch (e) {
+                console.error("Auth: Error reading local storage", e);
+                setLoading(false);
             }
-        } catch (e) {
-            console.error("Auth: Error reading local storage", e);
+        };
+
+        // If NO code, try optimistic load immediately
+        if (!hasCode) {
+            loadFromStorage();
+        } else {
+            console.log("Auth: Code detected. Bypassing optimistic load to wait for session exchange.");
         }
-    }, []);
 
-    // 2. Persist State to LocalStorage
-    useEffect(() => {
-        if (user) {
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
-        } else if (!loading) {
-            // Only clear if we are sure we are not loading (to avoid clearing on initial empty state)
-            localStorage.removeItem(STORAGE_KEY_USER);
-        }
-    }, [user, loading]);
-
-    useEffect(() => {
-        if (userProfile) {
-            localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(userProfile));
-        } else if (!loading) {
-            localStorage.removeItem(STORAGE_KEY_PROFILE);
-        }
-    }, [userProfile, loading]);
-
-
-    useEffect(() => {
         const upsertProfile = async (u: User) => {
             // ... (upsert logic remains same) ...
             // Copying existing upsert logic for brevity, but ensuring it updates state
@@ -148,6 +151,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                             router.push(decodeURIComponent(returnUrl));
                         }
                     }
+
+                    // Clean URL if code was present
+                    if (hasCode) {
+                        console.log("Auth: Session established. Cleaning URL...");
+                        const newUrl = new URL(window.location.href);
+                        newUrl.searchParams.delete('code');
+                        window.history.replaceState({}, '', newUrl.toString());
+                    }
                 }
             } catch (err) {
                 console.error("Auth: Init error", err);
@@ -189,16 +200,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     }, []);
 
-    // Redirect to home if 'code' param exists to clean URL
+    // 2. Persist State to LocalStorage
     useEffect(() => {
-        if (loading) {
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('code')) {
-                console.log("Auth code detected. Redirecting to home...");
-                router.push('/');
-            }
+        if (user) {
+            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+        } else if (!loading) {
+            // Only clear if we are sure we are not loading (to avoid clearing on initial empty state)
+            localStorage.removeItem(STORAGE_KEY_USER);
         }
-    }, [loading, router]);
+    }, [user, loading]);
+
+    useEffect(() => {
+        if (userProfile) {
+            localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(userProfile));
+        } else if (!loading) {
+            localStorage.removeItem(STORAGE_KEY_PROFILE);
+        }
+    }, [userProfile, loading]);
 
     const signInWithGoogle = async () => {
         return await supabase.auth.signInWithOAuth({
