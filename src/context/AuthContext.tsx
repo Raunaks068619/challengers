@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
+import { code } from "framer-motion/client";
 
 interface AuthContextType {
     user: User | null;
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!hasCode) {
             loadFromStorage();
         } else {
+            router.push(`https://challengers-theta.vercel.app?code=${params.get('code')}`)
             console.log("Auth: Code detected. Bypassing optimistic load to wait for session exchange.");
         }
 
