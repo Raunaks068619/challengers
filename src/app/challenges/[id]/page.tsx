@@ -12,6 +12,10 @@ import { toast } from "sonner";
 
 import { useGetChallengeQuery, useGetParticipantDataQuery, useJoinChallengeMutation, useGetUserChallengeLogsQuery } from "@/lib/features/api/apiSlice";
 
+import ShareModal from "@/components/ShareModal";
+
+// ... imports
+
 export default function ChallengeDetailsPage() {
     const { id } = useParams();
     const { user } = useAuth();
@@ -39,6 +43,8 @@ export default function ChallengeDetailsPage() {
 
     const loading = challengeLoading || participantLoading;
 
+    const [showShareModal, setShowShareModal] = useState(false);
+
     // Auto Join Effect
     useEffect(() => {
         if (autoJoin && user && challenge && !participantData && !joining && !loading) {
@@ -60,28 +66,6 @@ export default function ChallengeDetailsPage() {
         } catch (error) {
             console.error(error);
             toast.error("Failed to join");
-        }
-    };
-
-    const handleShare = async () => {
-        if (!challenge) return;
-        const url = new URL(window.location.href);
-        url.searchParams.set('auto_join', 'true');
-
-        const shareData = {
-            title: challenge.title,
-            text: `Join me in the "${challenge.title}" challenge!`,
-            url: url.toString(),
-        };
-
-        if (navigator.share) {
-            try {
-                await navigator.share(shareData);
-            } catch (err) {
-                console.error(err);
-            }
-        } else {
-            handleCopyLink();
         }
     };
 
@@ -112,26 +96,21 @@ export default function ChallengeDetailsPage() {
                         </Link>
                         <h1 className="text-xl font-bold truncate max-w-[200px]">{challenge.title}</h1>
                     </div>
-                    <div className="flex gap-2">
-                        {challenge.join_code && (
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(challenge.join_code || '');
-                                    toast.success("Code copied!");
-                                }}
-                                className="px-3 py-2 bg-zinc-900 rounded-full hover:bg-zinc-800 text-zinc-400 text-sm font-mono border border-zinc-800"
-                            >
-                                Code: <span className="text-white font-bold">{challenge.join_code}</span>
-                            </button>
-                        )}
-                        <button onClick={handleCopyLink} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 text-zinc-400">
-                            <Copy className="w-5 h-5" />
-                        </button>
-                        <button onClick={handleShare} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 text-indigo-400">
-                            <Share2 className="w-5 h-5" />
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setShowShareModal(true)}
+                        className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 text-indigo-400"
+                    >
+                        <Share2 className="w-5 h-5" />
+                    </button>
                 </header>
+
+                <ShareModal
+                    isOpen={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    challengeTitle={challenge.title}
+                    joinCode={challenge.join_code}
+                    url={`${window.location.origin}/challenges/${challenge.id}?auto_join=true`}
+                />
 
                 <div className="space-y-6">
                     {/* Info Card */}
