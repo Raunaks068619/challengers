@@ -98,44 +98,43 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Active Challenges</h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowJoinModal(true)}
-                  className="text-zinc-400 text-sm hover:text-white transition-colors"
-                >
-                  Join with Code
-                </button>
-                <Link href="/challenges/create" className="text-indigo-400 text-sm hover:text-indigo-300">
-                  + New
-                </Link>
-              </div>
             </div>
 
             {loading ? (
               <p className="text-zinc-500 text-sm">Loading challenges...</p>
-            ) : activeChallenges.length === 0 ? (
-              <div className="bg-zinc-900/50 rounded-2xl p-8 text-center border border-zinc-800 border-dashed">
-                <p className="text-zinc-500 mb-4 text-sm">No active challenges found.</p>
-                <div className="flex flex-col gap-3">
-                  <Link href="/challenges/create" className="inline-block px-4 py-2 bg-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20">
-                    Create Challenge
-                  </Link>
-                  <button onClick={() => setShowJoinModal(true)} className="text-sm text-zinc-400 hover:text-white">
-                    or Join with Code
-                  </button>
-                </div>
-              </div>
             ) : (
               <div className="space-y-4">
-                {activeChallenges.map((ch) => (
-                  <Link key={ch.id} href={`/challenges/${ch.id}`} className="block bg-zinc-900 rounded-xl p-4 border border-zinc-800 hover:border-indigo-500 transition-colors">
-                    <h3 className="font-medium">{ch.title}</h3>
-                    <div className="flex gap-4 mt-2 text-sm text-zinc-400">
-                      <span>{ch.challenge_participants?.[0]?.count || 0} Participants</span>
-                      <span>{ch.time_window_start} - {ch.time_window_end}</span>
-                    </div>
+                {activeChallenges.length === 0 ? (
+                  <div className="bg-zinc-900/50 rounded-2xl p-8 text-center border border-zinc-800 border-dashed">
+                    <p className="text-zinc-500 text-sm">No active challenges found.</p>
+                  </div>
+                ) : (
+                  activeChallenges.map((ch) => (
+                    <Link key={ch.id} href={`/challenges/${ch.id}`} className="block bg-zinc-900 rounded-xl p-4 border border-zinc-800 hover:border-indigo-500 transition-colors">
+                      <h3 className="font-medium">{ch.title}</h3>
+                      <div className="flex gap-4 mt-2 text-sm text-zinc-400">
+                        <span>{ch.challenge_participants?.[0]?.count || 0} Participants</span>
+                        <span>{ch.time_window_start} - {ch.time_window_end}</span>
+                      </div>
+                    </Link>
+                  ))
+                )}
+
+                {/* Actions Row */}
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <button
+                    onClick={() => setShowJoinModal(true)}
+                    className="py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-sm font-medium hover:bg-zinc-800 transition-colors text-zinc-300"
+                  >
+                    Join with Code
+                  </button>
+                  <Link
+                    href="/challenges/create"
+                    className="py-3 bg-indigo-600 rounded-xl text-sm font-medium text-center hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+                  >
+                    + New Challenge
                   </Link>
-                ))}
+                </div>
               </div>
             )}
           </div>
