@@ -15,10 +15,24 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, router]);
 
+    useEffect(() => {
+        let timeout: NodeJS.Timeout;
+        if (loading) {
+            timeout = setTimeout(() => {
+                console.log("AuthGuard: Loading timeout (5s). Reloading...");
+                window.location.reload();
+            }, 5000);
+        }
+        return () => clearTimeout(timeout);
+    }, [loading]);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                    <p className="text-zinc-500 text-sm animate-pulse">Loading...</p>
+                </div>
             </div>
         );
     }

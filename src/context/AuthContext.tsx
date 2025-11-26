@@ -70,11 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
 
         // If NO code, try optimistic load immediately
-        if (!hasCode) {
-            loadFromStorage();
-        } else {
-            console.log("Auth: Code detected. Bypassing optimistic load to wait for session exchange.");
-        }
 
         const upsertProfile = async (u: User) => {
             // ... (upsert logic remains same) ...
@@ -119,13 +114,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
 
         const initSession = async () => {
+            console.log("Auth: Initializing session (Background)...",initialized.current);
+            
             if (initialized.current) return;
             initialized.current = true;
 
-            console.log("Auth: Initializing session (Background)...");
-
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
+                console.log("Auth: Session:", session);
+
 
                 if (error) throw error;
 
@@ -168,8 +165,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setLoading(false);
             }
         };
+        if (!hasCode) {
+            loadFromStorage();
+        } else {
+            initSession();
+            // console.log("Auth: Code detected. Bypassing optimistic load to wait for session exchange.");
+        }
+
 
         initSession();
+
+
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
@@ -216,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (!loading) {
             localStorage.removeItem(STORAGE_KEY_PROFILE);
         }
-    }, [userProfile, loading]);
+    }, [userProfile, loading, params]);
 
     const signInWithGoogle = async () => {
         return await supabase.auth.signInWithOAuth({
@@ -229,14 +235,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Auth: Logging out...");
         try {
             await supabase.auth.signOut();
+            setUser(null);
+            setUserProfile(null);
+            localStorage.removeItem(STORAGE_KEY_USER);
+            localStorage.removeItem(STORAGE_KEY_PROFILE);
+            router.push('/login');
         } catch (error) {
             console.error("Auth: Error signing out", error);
         }
-        setUser(null);
-        setUserProfile(null);
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_PROFILE);
-        router.push('/login');
     };
 
     return (

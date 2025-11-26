@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
 import StoreProvider from "./StoreProvider";
 import { Suspense } from "react";
+import RefreshButton from "@/components/RefreshButton";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -13,7 +14,6 @@ export const metadata: Metadata = {
   description: "Push your limits. Bet on yourself.",
   manifest: "/manifest.json",
 };
-
 export const viewport: Viewport = {
   themeColor: "#09090b",
   width: "device-width",
@@ -34,6 +34,7 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <AuthProvider>
               {children}
+              <RefreshButton />
               <Toaster position="top-center" theme="dark" />
             </AuthProvider>
           </Suspense>
