@@ -2,11 +2,20 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, userProfile, loading, logout } = useAuth();
     const router = useRouter();
+    const params = new URLSearchParams(window.location.search);
+    const [code, setCode] = useState(false);
+
+    useEffect(() => {
+        if (params.has('code')) {
+            setCode(true);
+        }
+    }, [params]);
+
 
     useEffect(() => {
         if (!loading && !user) {
@@ -15,16 +24,13 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, router]);
 
-    // useEffect(() => {
-    //     let timeout: NodeJS.Timeout;
-    //     if (loading) {
-    //         timeout = setTimeout(() => {
-    //             console.log("AuthGuard: Loading timeout (5s). Reloading...");
-    //             router.push('/profile')
-    //         }, 5000);
-    //     }
-    //     return () => clearTimeout(timeout);
-    // }, [loading]);
+    useEffect(() => {
+        if (code) {
+            localStorage.removeItem('challengers_user');
+            // localStorage.removeItem('challengers_profile');
+            window.location.reload();
+        }
+    }, [code, loading]);
 
     if (loading) {
         return (
