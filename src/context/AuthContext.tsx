@@ -220,7 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (!loading) {
             localStorage.removeItem(STORAGE_KEY_PROFILE);
         }
-    }, [userProfile, loading, params]);
+    }, [userProfile, user, loading, params]);
 
     const signInWithGoogle = async () => {
         return await supabase.auth.signInWithOAuth({
