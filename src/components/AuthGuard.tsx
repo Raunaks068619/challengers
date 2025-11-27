@@ -28,9 +28,12 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (code) {
             localStorage.removeItem('challengers_user');
             // localStorage.removeItem('challengers_profile');
-            window.location.reload();
+            const newParams = new URLSearchParams(window.location.search);
+            newParams.delete('code');
+            const newSearch = newParams.toString();
+            router.replace(`${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
         }
-    }, [code, loading]);
+    }, [code, router]);
 
     if (loading) {
         return (
