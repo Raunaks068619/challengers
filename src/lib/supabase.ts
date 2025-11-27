@@ -1,16 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
-import { auth } from "./firebase";
+import { createBrowserClient } from "@supabase/ssr";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(
+export const supabase = createBrowserClient(
     supabaseUrl,
     supabaseAnonKey,
     {
-        accessToken: async () => {
-            const token = await auth.currentUser?.getIdToken();
-            return token || '';
-        },
+        auth: {
+            persistSession: true,
+            storageKey: 'supabase.auth.token',
+        }
     }
 );
