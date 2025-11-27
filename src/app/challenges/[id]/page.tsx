@@ -55,6 +55,7 @@ export default function ChallengeDetailsPage() {
     const handleJoin = async () => {
         if (!user || !challenge || !challenge.id) return;
         try {
+            console.log("handleJoin Challenge",{ challengeId: challenge.id, userId: user.id })
             await joinChallenge({ challengeId: challenge.id, userId: user.id }).unwrap();
             toast.success("Joined challenge! +500 pts");
 
