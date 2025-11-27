@@ -1,6 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getMessaging, isSupported } from "firebase/messaging";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,9 +12,6 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
-
 // Initialize Messaging (only on client side and if supported)
 export const getMessagingInstance = async () => {
     if (typeof window !== "undefined" && await isSupported()) {
@@ -24,4 +20,4 @@ export const getMessagingInstance = async () => {
     return null;
 };
 
-export { app, auth, googleProvider };
+export { app };

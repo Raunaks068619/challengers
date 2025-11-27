@@ -4,8 +4,6 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
-import { auth, googleProvider } from "@/lib/firebase";
-import { signInWithPopup, onAuthStateChanged, signOut } from "firebase/auth";
 
 interface AuthContextType {
     user: User | null;
@@ -39,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 1. Initialization Effect
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const hasCode = params.has('code'); // Legacy Supabase code check (can keep for now)
+        const hasCode = params.has('code');
 
         // Helper to load from storage
         const loadFromStorage = () => {
@@ -104,65 +102,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         };
 
-        // FIREBASE AUTH LISTENER
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            console.log("Auth: Firebase State Changed:", firebaseUser?.email);
+        const initSession = async () => {
+            if (initialized.current) return;
+            initialized.current = true;
 
-            if (firebaseUser) {
-                try {
-                    // 1. Get ID Token from Firebase
-                    const token = await firebaseUser.getIdToken();
-                    console.log("Auth: Firebase Token:", token);
+            console.log("Auth: Initializing session (Background)...");
 
-                    const tokenResult = await firebaseUser.getIdTokenResult();
-                    console.log("Auth: Firebase Token Claims:", tokenResult.claims);
-                    console.log("Auth: Expected Audience (Project ID):", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+            try {
+                // Add 5s timeout to getSession
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+                );
 
-                    // 2. Sign in to Supabase with the ID Token
-                    const { data: { session }, error } = await supabase.auth.signInWithIdToken({
-                        provider: 'firebase',
-                        token: token,
-                    });
+                const { data: { session }, error } = await Promise.race([
+                    sessionPromise,
+                    timeoutPromise
+                ]) as any;
 
-                    if (error) {
-                        console.error("Auth: Supabase Exchange Error:", error);
-                        // Fallback: Try 'firebase' provider if 'google' fails
-                        const { data: retrySession, error: retryError } = await supabase.auth.signInWithIdToken({
-                            provider: 'firebase',
-                            token: token,
-                        });
+                console.log("Auth: Session result:", session ? "Found" : "Null");
 
-                        if (retryError) throw retryError;
-                        if (retrySession.session) {
-                            setUser(retrySession.session.user);
-                            await upsertProfile(retrySession.session.user);
+                if (error) throw error;
+
+                // Sync state with Supabase (Source of Truth)
+                setUser(session?.user ?? null);
+
+                if (session?.user) {
+                    await upsertProfile(session.user);
+
+                    // Fetch latest profile to ensure we have everything
+                    const { data: profile } = await supabase
+                        .from("profiles")
+                        .select("*")
+                        .eq("id", session.user.id)
+                        .single();
+                    if (profile) setUserProfile(profile);
+
+                    // Check for returnUrl
+                    const returnUrl = sessionStorage.getItem("returnUrl");
+                    if (returnUrl) {
+                        sessionStorage.removeItem("returnUrl");
+                        if (returnUrl.includes("/challenge")) {
+                            router.push(decodeURIComponent(returnUrl));
                         }
-                    } else if (session) {
-                        console.log("Auth: Supabase Session Established via Firebase");
-                        setUser(session.user);
-                        await upsertProfile(session.user);
                     }
 
-                } catch (err) {
-                    console.error("Auth: Token Exchange Failed", err);
-                    setLoading(false);
+                    // Clean URL if code was present
+                    if (hasCode) {
+                        console.log("Auth: Session established. Cleaning URL...");
+                        const newUrl = new URL(window.location.href);
+                        newUrl.searchParams.delete('code');
+                        window.history.replaceState({}, '', newUrl.toString());
+                    }
                 }
-            } else {
-                // Signed out
-                console.log("Auth: Signed out");
-                setUser(null);
-                setUserProfile(null);
-                localStorage.removeItem(STORAGE_KEY_USER);
-                localStorage.removeItem(STORAGE_KEY_PROFILE);
-                await supabase.auth.signOut(); // Ensure Supabase is also cleared
+            } catch (err) {
+                console.error("Auth: Init error", err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        });
+        };
 
-        // Initial load check
-        loadFromStorage();
+        if (!hasCode) {
+            loadFromStorage();
+            // Still run initSession in background to validate cache
+            initSession();
+        } else {
+            // If code exists, ONLY run initSession (bypass cache to avoid conflicts)
+            console.log("Auth: Code detected. Waiting for session exchange.");
+            initSession();
+        }
 
-        return () => unsubscribe();
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    setUser(session?.user ?? null);
+                    if (session?.user) {
+                        // Ensure profile exists before stopping loading
+                        await upsertProfile(session.user);
+
+                        // Fetch latest to be sure
+                        const { data: profile } = await supabase
+                            .from("profiles")
+                            .select("*")
+                            .eq("id", session.user.id)
+                            .single();
+                        if (profile) setUserProfile(profile);
+                    }
+                    setLoading(false);
+                } else if (event === 'SIGNED_OUT') {
+                    setUser(null);
+                    setUserProfile(null);
+                    setLoading(false);
+                    localStorage.removeItem(STORAGE_KEY_USER);
+                    localStorage.removeItem(STORAGE_KEY_PROFILE);
+                }
+            }
+        );
+
+        return () => subscription.unsubscribe();
 
     }, []);
 
@@ -184,22 +221,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [userProfile, loading, params]);
 
     const signInWithGoogle = async () => {
-        try {
-            const result = await signInWithPopup(auth, googleProvider);
-            console.log("Auth: Firebase Login Success", result.user.email);
-            // The onAuthStateChanged listener will handle the rest (token exchange)
-            return result;
-        } catch (error) {
-            console.error("Auth: Firebase Login Error", error);
-            throw error;
-        }
+        return await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.origin }
+        });
     };
 
     const logout = async () => {
         console.log("Auth: Logging out...");
         try {
-            await signOut(auth); // Firebase SignOut
-            // await supabase.auth.signOut(); // Not needed as we don't hold a Supabase session
+            await supabase.auth.signOut();
             setUser(null);
             setUserProfile(null);
             localStorage.removeItem(STORAGE_KEY_USER);
