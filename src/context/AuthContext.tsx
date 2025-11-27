@@ -114,15 +114,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
 
         const initSession = async () => {
-            console.log("Auth: Initializing session (Background)...",initialized.current);
-            
             if (initialized.current) return;
             initialized.current = true;
 
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                console.log("Auth: Session:", session);
+            console.log("Auth: Initializing session (Background)...");
 
+            try {
+                // Add 5s timeout to getSession
+                const sessionPromise = supabase.auth.getSession();
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+                );
+
+                const { data: { session }, error } = await Promise.race([
+                    sessionPromise,
+                    timeoutPromise
+                ]) as any;
+
+                console.log("Auth: Session result:", session ? "Found" : "Null");
 
                 if (error) throw error;
 
@@ -159,21 +168,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             } catch (err) {
                 console.error("Auth: Init error", err);
-                // If error, we might want to clear local storage if it's a critical auth error
-                // But for now, let's keep the cached version to avoid jarring UI
             } finally {
                 setLoading(false);
             }
         };
+
         if (!hasCode) {
             loadFromStorage();
-        } else {
+            // Still run initSession in background to validate cache
             initSession();
-            // console.log("Auth: Code detected. Bypassing optimistic load to wait for session exchange.");
+        } else {
+            // If code exists, ONLY run initSession (bypass cache to avoid conflicts)
+            console.log("Auth: Code detected. Waiting for session exchange.");
+            initSession();
         }
-
-
-        initSession();
 
 
 
