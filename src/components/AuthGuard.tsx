@@ -32,7 +32,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             newParams.delete('code');
             const newSearch = newParams.toString();
             router.replace(`${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
-            window.location.reload();
+            // window.location.reload();
         }
     }, [code, router]);
 
