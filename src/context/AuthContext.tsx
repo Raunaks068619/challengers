@@ -111,13 +111,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
                 // Add 5s timeout to getSession
                 const sessionPromise = supabase.auth.getSession();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
-                );
+                // const timeoutPromise = new Promise((_, reject) =>
+                //     setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+                // );
+                console.log("Auth: Session result:", sessionPromise);
+                
 
                 const { data: { session }, error } = await Promise.race([
                     sessionPromise,
-                    timeoutPromise
+                    // timeoutPromise
                 ]) as any;
 
                 console.log("Auth: Session result:", session ? "Found" : "Null");
