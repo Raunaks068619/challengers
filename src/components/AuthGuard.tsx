@@ -15,16 +15,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, router]);
 
-    useEffect(() => {
-        let timeout: NodeJS.Timeout;
-        if (loading) {
-            timeout = setTimeout(() => {
-                console.log("AuthGuard: Loading timeout (5s). Reloading...");
-                router.push('/profile')
-            }, 5000);
-        }
-        return () => clearTimeout(timeout);
-    }, [loading]);
+    // useEffect(() => {
+    //     let timeout: NodeJS.Timeout;
+    //     if (loading) {
+    //         timeout = setTimeout(() => {
+    //             console.log("AuthGuard: Loading timeout (5s). Reloading...");
+    //             router.push('/profile')
+    //         }, 5000);
+    //     }
+    //     return () => clearTimeout(timeout);
+    // }, [loading]);
 
     if (loading) {
         return (
