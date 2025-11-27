@@ -190,8 +190,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                     setUser(session?.user ?? null);
                     if (session?.user) {
-                        // We can skip full upsert here if we just did it in initSession
-                        // But let's fetch profile to be safe
+                        // Ensure profile exists before stopping loading
+                        await upsertProfile(session.user);
+
+                        // Fetch latest to be sure
                         const { data: profile } = await supabase
                             .from("profiles")
                             .select("*")
