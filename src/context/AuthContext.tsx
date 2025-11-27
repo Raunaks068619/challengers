@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 //     setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
                 // );
                 console.log("Auth: Session result:", sessionPromise);
-                
+
 
                 const { data: { session }, error } = await Promise.race([
                     sessionPromise,
@@ -231,6 +231,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const logout = async () => {
         console.log("Auth: Logging out...");
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem(STORAGE_KEY_PROFILE);
         try {
             await supabase.auth.signOut();
             setUser(null);
