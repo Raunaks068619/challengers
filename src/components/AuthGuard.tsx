@@ -20,7 +20,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         if (loading) {
             timeout = setTimeout(() => {
                 console.log("AuthGuard: Loading timeout (5s). Reloading...");
-                window.location.reload();
+                router.push('/profile')
             }, 5000);
         }
         return () => clearTimeout(timeout);
