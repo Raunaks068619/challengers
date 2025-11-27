@@ -11,8 +11,13 @@ export const requestNotificationPermission = async () => {
 
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
+            const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+            if (!vapidKey) {
+                console.warn("VAPID key is missing. Notifications will not work.");
+                return null;
+            }
             const token = await getToken(messaging, {
-                vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+                vapidKey: vapidKey
             });
             return token;
         } else {
