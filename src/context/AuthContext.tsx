@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
+import { auth, googleProvider } from "@/lib/firebase";
+import { signInWithPopup, onAuthStateChanged, signOut } from "firebase/auth";
 
 interface AuthContextType {
     user: User | null;
@@ -37,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // 1. Initialization Effect
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const hasCode = params.has('code');
+        const hasCode = params.has('code'); // Legacy Supabase code check (can keep for now)
 
         // Helper to load from storage
         const loadFromStorage = () => {
@@ -52,15 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                     if (cachedProfile) {
                         setUserProfile(JSON.parse(cachedProfile));
-                        // Only stop loading if we have both (or if we decide user is enough)
-                        // To prevent "No Profile" flash, we wait for profile if user exists.
                         setLoading(false);
                     } else {
-                        // User exists but no profile? Keep loading until network fetch
                         console.log("Auth: Cached user found but no profile. Keeping loading true.");
                     }
                 } else {
-                    // No user in storage, stop loading (show login)
                     setLoading(false);
                 }
             } catch (e) {
@@ -69,11 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         };
 
-        // If NO code, try optimistic load immediately
-
         const upsertProfile = async (u: User) => {
-            // ... (upsert logic remains same) ...
-            // Copying existing upsert logic for brevity, but ensuring it updates state
             console.log("Checking profile for:", u.id);
 
             // 1. Check if profile exists
@@ -92,13 +86,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Update local state immediately to keep UI fresh
                 setUserProfile(existing);
 
-                // ... (rest of update logic) ...
                 if (existing.current_points === 0 && existing.total_earned === 0) {
-                    // ... welcome bonus logic ...
                     await supabase.from("profiles").update({ current_points: 500, total_earned: 500 }).eq("id", u.id);
                 }
             } else {
-                // ... create profile logic ...
                 const newProfile = {
                     id: u.id,
                     email: u.email,
@@ -113,106 +104,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         };
 
-        const initSession = async () => {
-            if (initialized.current) return;
-            initialized.current = true;
+        // FIREBASE AUTH LISTENER
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            console.log("Auth: Firebase State Changed:", firebaseUser?.email);
 
-            console.log("Auth: Initializing session (Background)...");
+            if (firebaseUser) {
+                try {
+                    // 1. Get ID Token from Firebase
+                    const token = await firebaseUser.getIdToken();
 
-            try {
-                // Add 5s timeout to getSession
-                const sessionPromise = supabase.auth.getSession();
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
-                );
+                    // 2. Sign in to Supabase with the ID Token
+                    const { data: { session }, error } = await supabase.auth.signInWithIdToken({
+                        provider: 'google', // Or 'firebase' depending on Supabase config, usually 'google' works if mapped
+                        token: token,
+                    });
 
-                const { data: { session }, error } = await Promise.race([
-                    sessionPromise,
-                    timeoutPromise
-                ]) as any;
+                    if (error) {
+                        console.error("Auth: Supabase Exchange Error:", error);
+                        // Fallback: Try 'firebase' provider if 'google' fails
+                        const { data: retrySession, error: retryError } = await supabase.auth.signInWithIdToken({
+                            provider: 'firebase',
+                            token: token,
+                        });
 
-                console.log("Auth: Session result:", session ? "Found" : "Null");
-
-                if (error) throw error;
-
-                // Sync state with Supabase (Source of Truth)
-                setUser(session?.user ?? null);
-
-                if (session?.user) {
-                    await upsertProfile(session.user);
-
-                    // Fetch latest profile to ensure we have everything
-                    const { data: profile } = await supabase
-                        .from("profiles")
-                        .select("*")
-                        .eq("id", session.user.id)
-                        .single();
-                    if (profile) setUserProfile(profile);
-
-                    // Check for returnUrl
-                    const returnUrl = sessionStorage.getItem("returnUrl");
-                    if (returnUrl) {
-                        sessionStorage.removeItem("returnUrl");
-                        if (returnUrl.includes("/challenge")) {
-                            router.push(decodeURIComponent(returnUrl));
+                        if (retryError) throw retryError;
+                        if (retrySession.session) {
+                            setUser(retrySession.session.user);
+                            await upsertProfile(retrySession.session.user);
                         }
-                    }
-
-                    // Clean URL if code was present
-                    if (hasCode) {
-                        console.log("Auth: Session established. Cleaning URL...");
-                        const newUrl = new URL(window.location.href);
-                        newUrl.searchParams.delete('code');
-                        window.history.replaceState({}, '', newUrl.toString());
-                    }
-                }
-            } catch (err) {
-                console.error("Auth: Init error", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (!hasCode) {
-            loadFromStorage();
-            // Still run initSession in background to validate cache
-            initSession();
-        } else {
-            // If code exists, ONLY run initSession (bypass cache to avoid conflicts)
-            console.log("Auth: Code detected. Waiting for session exchange.");
-            initSession();
-        }
-
-
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    setUser(session?.user ?? null);
-                    if (session?.user) {
-                        // Ensure profile exists before stopping loading
+                    } else if (session) {
+                        console.log("Auth: Supabase Session Established via Firebase");
+                        setUser(session.user);
                         await upsertProfile(session.user);
-
-                        // Fetch latest to be sure
-                        const { data: profile } = await supabase
-                            .from("profiles")
-                            .select("*")
-                            .eq("id", session.user.id)
-                            .single();
-                        if (profile) setUserProfile(profile);
                     }
-                    setLoading(false);
-                } else if (event === 'SIGNED_OUT') {
-                    setUser(null);
-                    setUserProfile(null);
-                    setLoading(false);
-                    localStorage.removeItem(STORAGE_KEY_USER);
-                    localStorage.removeItem(STORAGE_KEY_PROFILE);
-                }
-            }
-        );
 
-        return () => subscription.unsubscribe();
+                } catch (err) {
+                    console.error("Auth: Token Exchange Failed", err);
+                    setLoading(false);
+                }
+            } else {
+                // Signed out
+                console.log("Auth: Signed out");
+                setUser(null);
+                setUserProfile(null);
+                localStorage.removeItem(STORAGE_KEY_USER);
+                localStorage.removeItem(STORAGE_KEY_PROFILE);
+                await supabase.auth.signOut(); // Ensure Supabase is also cleared
+            }
+            setLoading(false);
+        });
+
+        // Initial load check
+        loadFromStorage();
+
+        return () => unsubscribe();
 
     }, []);
 
@@ -221,7 +166,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) {
             localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
         } else if (!loading) {
-            // Only clear if we are sure we are not loading (to avoid clearing on initial empty state)
             localStorage.removeItem(STORAGE_KEY_USER);
         }
     }, [user, loading]);
@@ -235,16 +179,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [userProfile, loading, params]);
 
     const signInWithGoogle = async () => {
-        return await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: window.location.origin }
-        });
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            console.log("Auth: Firebase Login Success", result.user.email);
+            // The onAuthStateChanged listener will handle the rest (token exchange)
+            return result;
+        } catch (error) {
+            console.error("Auth: Firebase Login Error", error);
+            throw error;
+        }
     };
 
     const logout = async () => {
         console.log("Auth: Logging out...");
         try {
-            await supabase.auth.signOut();
+            await signOut(auth); // Firebase SignOut
+            await supabase.auth.signOut(); // Supabase SignOut
             setUser(null);
             setUserProfile(null);
             localStorage.removeItem(STORAGE_KEY_USER);
