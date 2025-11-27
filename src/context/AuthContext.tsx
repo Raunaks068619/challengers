@@ -110,41 +110,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (firebaseUser) {
                 try {
-                    // 1. Get ID Token from Firebase
-                    const token = await firebaseUser.getIdToken();
-                    console.log("Auth: Firebase Token:", token);
+                    // Map Firebase User to Supabase-like User structure
+                    const mappedUser: User = {
+                        id: firebaseUser.uid,
+                        app_metadata: {},
+                        user_metadata: {
+                            full_name: firebaseUser.displayName,
+                            avatar_url: firebaseUser.photoURL,
+                            email: firebaseUser.email,
+                            email_verified: firebaseUser.emailVerified,
+                        },
+                        aud: 'authenticated',
+                        created_at: new Date().toISOString(),
+                        email: firebaseUser.email || undefined,
+                        phone: firebaseUser.phoneNumber || undefined,
+                        role: 'authenticated',
+                        updated_at: new Date().toISOString(),
+                    };
 
-                    const tokenResult = await firebaseUser.getIdTokenResult();
-                    console.log("Auth: Firebase Token Claims:", tokenResult.claims);
-                    console.log("Auth: Expected Audience (Project ID):", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
-
-                    // 2. Sign in to Supabase with the ID Token
-                    const { data: { session }, error } = await supabase.auth.signInWithIdToken({
-                        provider: 'firebase',
-                        token: token,
-                    });
-
-                    if (error) {
-                        console.error("Auth: Supabase Exchange Error:", error);
-                        // Fallback: Try 'firebase' provider if 'google' fails
-                        const { data: retrySession, error: retryError } = await supabase.auth.signInWithIdToken({
-                            provider: 'firebase',
-                            token: token,
-                        });
-
-                        if (retryError) throw retryError;
-                        if (retrySession.session) {
-                            setUser(retrySession.session.user);
-                            await upsertProfile(retrySession.session.user);
-                        }
-                    } else if (session) {
-                        console.log("Auth: Supabase Session Established via Firebase");
-                        setUser(session.user);
-                        await upsertProfile(session.user);
-                    }
+                    console.log("Auth: Using Firebase User directly:", mappedUser.email);
+                    setUser(mappedUser);
+                    await upsertProfile(mappedUser);
 
                 } catch (err) {
-                    console.error("Auth: Token Exchange Failed", err);
+                    console.error("Auth: Error handling Firebase user", err);
                     setLoading(false);
                 }
             } else {
@@ -154,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUserProfile(null);
                 localStorage.removeItem(STORAGE_KEY_USER);
                 localStorage.removeItem(STORAGE_KEY_PROFILE);
-                await supabase.auth.signOut(); // Ensure Supabase is also cleared
+                // No need to call supabase.auth.signOut() as we are not using its session
             }
             setLoading(false);
         });
@@ -199,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Auth: Logging out...");
         try {
             await signOut(auth); // Firebase SignOut
-            await supabase.auth.signOut(); // Supabase SignOut
+            // await supabase.auth.signOut(); // Not needed as we don't hold a Supabase session
             setUser(null);
             setUserProfile(null);
             localStorage.removeItem(STORAGE_KEY_USER);
