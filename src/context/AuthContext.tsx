@@ -112,6 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 try {
                     // 1. Get ID Token from Firebase
                     const token = await firebaseUser.getIdToken();
+                    const tokenResult = await firebaseUser.getIdTokenResult();
+                    console.log("Auth: Firebase Token Claims:", tokenResult.claims);
+                    console.log("Auth: Expected Audience (Project ID):", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
 
                     // 2. Sign in to Supabase with the ID Token
                     const { data: { session }, error } = await supabase.auth.signInWithIdToken({
