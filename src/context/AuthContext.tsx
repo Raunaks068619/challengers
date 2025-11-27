@@ -118,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                     // 2. Sign in to Supabase with the ID Token
                     const { data: { session }, error } = await supabase.auth.signInWithIdToken({
-                        provider: 'firebase',
+                        provider: 'google',
                         token: token,
                     });
 
