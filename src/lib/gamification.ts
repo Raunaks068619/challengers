@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, addDoc } from "firebase/firestore";
 import { toast } from "sonner";
 
 export const checkMissedLogs = async (userId: string) => {
@@ -9,44 +10,53 @@ export const checkMissedLogs = async (userId: string) => {
         const yesterdayStr = yesterday.toISOString().split('T')[0];
 
         // 2. Get all active challenges for the user
-        const { data: participations, error: pError } = await supabase
-            .from("challenge_participants")
-            .select("challenge_id, current_points, streak_current, created_at, challenges(start_date)")
-            .eq("user_id", userId)
-            .eq("is_active", true);
+        const participantsRef = collection(db, "challenge_participants");
+        const q = query(
+            participantsRef,
+            where("user_id", "==", userId),
+            where("is_active", "==", true)
+        );
+        const querySnapshot = await getDocs(q);
 
-        if (pError || !participations) return;
+        if (querySnapshot.empty) return;
 
-        for (const p of participations) {
-            // Check if user joined AFTER yesterday (e.g. joined today)
-            // We compare the date strings to be safe (YYYY-MM-DD)
+        for (const pDoc of querySnapshot.docs) {
+            const p = pDoc.data();
+            const challengeId = p.challenge_id;
+
+            // Check if user joined AFTER yesterday
             const joinedDate = new Date(p.created_at).toISOString().split('T')[0];
             if (joinedDate > yesterdayStr) continue;
 
             // Check if challenge started AFTER yesterday
-            // @ts-ignore - Supabase join types can be tricky
-            const challenge = Array.isArray(p.challenges) ? p.challenges[0] : p.challenges;
-            if (challenge?.start_date) {
-                const startDate = new Date(challenge.start_date).toISOString().split('T')[0];
-                if (startDate > yesterdayStr) continue;
+            const challengeRef = doc(db, "challenges", challengeId);
+            const challengeSnap = await getDoc(challengeRef);
+
+            if (challengeSnap.exists()) {
+                const challenge = challengeSnap.data();
+                if (challenge.start_date) {
+                    const startDate = new Date(challenge.start_date).toISOString().split('T')[0];
+                    if (startDate > yesterdayStr) continue;
+                }
             }
 
             // 3. Check if a log exists for yesterday
-            const { data: log } = await supabase
-                .from("daily_logs")
-                .select("id")
-                .eq("challenge_id", p.challenge_id)
-                .eq("user_id", userId)
-                .eq("date", yesterdayStr)
-                .maybeSingle();
+            const logsRef = collection(db, "daily_logs");
+            const logQuery = query(
+                logsRef,
+                where("challenge_id", "==", challengeId),
+                where("user_id", "==", userId),
+                where("date", "==", yesterdayStr)
+            );
+            const logSnap = await getDocs(logQuery);
 
-            if (!log) {
+            if (logSnap.empty) {
                 // MISSED!
-                console.log(`User ${userId} missed challenge ${p.challenge_id} on ${yesterdayStr}`);
+                console.log(`User ${userId} missed challenge ${challengeId} on ${yesterdayStr}`);
 
                 // A. Create 'missed' log
-                await supabase.from("daily_logs").insert({
-                    challenge_id: p.challenge_id,
+                await addDoc(collection(db, "daily_logs"), {
+                    challenge_id: challengeId,
                     user_id: userId,
                     date: yesterdayStr,
                     status: "missed",
@@ -57,18 +67,21 @@ export const checkMissedLogs = async (userId: string) => {
                 const penalty = 100;
                 const newPoints = (p.current_points || 0) - penalty;
 
-                await supabase.from("challenge_participants").update({
+                await updateDoc(pDoc.ref, {
                     current_points: newPoints,
                     streak_current: 0
-                }).eq("challenge_id", p.challenge_id).eq("user_id", userId);
+                });
 
                 // C. Update Profile (Total Lost / Treat Pool)
-                const { data: profile } = await supabase.from("profiles").select("total_lost, current_points").eq("id", userId).single();
-                if (profile) {
-                    await supabase.from("profiles").update({
+                const profileRef = doc(db, "profiles", userId);
+                const profileSnap = await getDoc(profileRef);
+
+                if (profileSnap.exists()) {
+                    const profile = profileSnap.data();
+                    await updateDoc(profileRef, {
                         total_lost: (profile.total_lost || 0) + penalty,
                         current_points: (profile.current_points || 0) - penalty
-                    }).eq("id", userId);
+                    });
                 }
 
                 toast.error(`Missed task yesterday! -${penalty} pts`);

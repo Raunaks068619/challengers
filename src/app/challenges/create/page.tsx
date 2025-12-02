@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { generateChallengeFromAI } from "@/app/actions";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
@@ -103,7 +102,7 @@ export default function CreateChallengePage() {
                 location_radius: 100, // Default 100m
             };
 
-            await createChallenge({ challenge: challengeData, userId: user.id }).unwrap();
+            await createChallenge({ challenge: challengeData, userId: user.uid }).unwrap();
 
             toast.success("Challenge created!");
             router.push("/");

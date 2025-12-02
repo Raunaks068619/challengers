@@ -91,7 +91,7 @@ export default function ShareModal({ isOpen, onClose, challengeTitle, joinCode, 
                     {/* Option 3: Join Code */}
                     {joinCode && (
                         <div className="pt-4 border-t border-zinc-800">
-                            <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-3">Join Code</p>
+                            <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold mb-3">JOIN CODE</p>
                             <div className="flex gap-2">
                                 <div className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl flex items-center justify-center p-3">
                                     <span className="font-mono text-xl font-bold tracking-widest text-white">{joinCode}</span>

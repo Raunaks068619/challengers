@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Challenge } from "@/types";
@@ -61,15 +62,16 @@ export default function CheckInPage() {
             if (!id || !user) return;
             // Check if already checked in today
             const today = new Date().toISOString().split('T')[0];
-            const { data: log, error: logError } = await supabase
-                .from("daily_logs")
-                .select("id")
-                .eq("challenge_id", id)
-                .eq("user_id", user.id)
-                .eq("date", today)
-                .maybeSingle();
 
-            if (log && !logError) {
+            const q = query(
+                collection(db, "daily_logs"),
+                where("challenge_id", "==", id),
+                where("user_id", "==", user.uid),
+                where("date", "==", today)
+            );
+            const snap = await getDocs(q);
+
+            if (!snap.empty) {
                 setStatus("already_checked_in");
             }
             setCheckingLog(false);
@@ -145,12 +147,12 @@ export default function CheckInPage() {
             }
         }
 
-        if (!challenge.id || !user.id) return;
+        if (!challenge.id || !user.uid) return;
 
         try {
             await performCheckIn({
                 challengeId: challenge.id,
-                userId: user.id,
+                userId: user.uid,
                 imgSrc,
                 location
             }).unwrap();

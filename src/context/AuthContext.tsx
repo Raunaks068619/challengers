@@ -1,9 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef } from "react";
-import { User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
-import { useRouter, useSearchParams } from "next/navigation";
+import { createContext, useContext, useEffect, useState } from "react";
+import { User, signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { auth, db, googleProvider } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { getProfileFromCache, cacheProfile } from "@/app/actions/profile";
 
 interface AuthContextType {
     user: User | null;
@@ -26,189 +28,98 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userProfile, setUserProfile] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
-    const params = useSearchParams();
-
-    const initialized = useRef(false);
 
     // Keys for LocalStorage
     const STORAGE_KEY_USER = 'challengers_user';
     const STORAGE_KEY_PROFILE = 'challengers_profile';
 
-    // 1. Initialization Effect
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const hasCode = params.has('code');
+    const upsertProfile = async (u: User) => {
+        console.log("Checking profile for:", u.uid);
 
-        // Helper to load from storage
-        const loadFromStorage = () => {
-            try {
-                const cachedUser = localStorage.getItem(STORAGE_KEY_USER);
-                const cachedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
-
-                if (cachedUser) {
-                    console.log("Auth: Found cached user");
-                    const parsedUser = JSON.parse(cachedUser);
-                    setUser(parsedUser);
-
-                    if (cachedProfile) {
-                        setUserProfile(JSON.parse(cachedProfile));
-                        setLoading(false);
-                    } else {
-                        console.log("Auth: Cached user found but no profile. Keeping loading true.");
-                    }
-                } else {
-                    setLoading(false);
-                }
-            } catch (e) {
-                console.error("Auth: Error reading local storage", e);
-                setLoading(false);
-            }
-        };
-
-        const upsertProfile = async (u: User) => {
-            console.log("Checking profile for:", u.id);
-
-            // 1. Check if profile exists
-            const { data: existing, error: fetchError } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", u.id)
-                .maybeSingle();
-
-            if (fetchError) {
-                console.error("Error checking profile:", fetchError);
+        try {
+            // 1. Try to get from Redis Cache first
+            const cachedProfile = await getProfileFromCache(u.uid);
+            if (cachedProfile) {
+                console.log("Profile found in Redis cache");
+                setUserProfile(cachedProfile);
                 return;
             }
 
-            if (existing) {
-                // Update local state immediately to keep UI fresh
+            // 2. If not in cache, fetch from Firestore
+            const userRef = doc(db, "profiles", u.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                const existing = userSnap.data();
                 setUserProfile(existing);
+                // Cache it
+                await cacheProfile(u.uid, existing);
 
                 if (existing.current_points === 0 && existing.total_earned === 0) {
-                    await supabase.from("profiles").update({ current_points: 500, total_earned: 500 }).eq("id", u.id);
+                    await updateDoc(userRef, { current_points: 500, total_earned: 500 });
+                    // Update cache after modification
+                    await cacheProfile(u.uid, { ...existing, current_points: 500, total_earned: 500 });
                 }
             } else {
                 const newProfile = {
-                    id: u.id,
+                    id: u.uid,
                     email: u.email,
-                    display_name: u.user_metadata?.full_name || u.email,
-                    photo_url: u.user_metadata?.avatar_url || null,
+                    display_name: u.displayName || u.email,
+                    photo_url: u.photoURL || null,
                     current_points: 500,
                     total_earned: 500,
                     total_lost: 0,
                 };
-                await supabase.from("profiles").insert(newProfile);
-                setUserProfile(newProfile); // Optimistic update
+                await setDoc(userRef, newProfile);
+                setUserProfile(newProfile);
+                // Cache new profile
+                await cacheProfile(u.uid, newProfile);
             }
-        };
-
-        const initSession = async () => {
-            if (initialized.current) return;
-            initialized.current = true;
-
-            console.log("Auth: Initializing session (Background)...");
-
-            try {
-                // Add 5s timeout to getSession
-                const sessionPromise = supabase.auth.getSession();
-                // const timeoutPromise = new Promise((_, reject) =>
-                //     setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
-                // );
-                console.log("Auth: Session result:", sessionPromise);
-
-
-                const { data: { session }, error } = await Promise.race([
-                    sessionPromise,
-                    // timeoutPromise
-                ]) as any;
-
-                console.log("Auth: Session result:", session ? "Found" : "Null");
-
-                if (error) throw error;
-
-                // Sync state with Supabase (Source of Truth)
-                setUser(session?.user ?? null);
-
-                if (session?.user) {
-                    await upsertProfile(session.user);
-
-                    // Fetch latest profile to ensure we have everything
-                    const { data: profile } = await supabase
-                        .from("profiles")
-                        .select("*")
-                        .eq("id", session.user.id)
-                        .single();
-                    if (profile) setUserProfile(profile);
-
-                    // Check for returnUrl
-                    const returnUrl = sessionStorage.getItem("returnUrl");
-                    if (returnUrl) {
-                        sessionStorage.removeItem("returnUrl");
-                        if (returnUrl.includes("/challenge")) {
-                            router.push(decodeURIComponent(returnUrl));
-                        }
-                    }
-
-                    // Clean URL if code was present
-                    if (hasCode) {
-                        console.log("Auth: Session established. Cleaning URL...");
-                        const newUrl = new URL(window.location.href);
-                        newUrl.searchParams.delete('code');
-                        window.history.replaceState({}, '', newUrl.toString());
-                    }
-                }
-            } catch (err) {
-                console.error("Auth: Init error", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (!hasCode) {
-            loadFromStorage();
-            // Still run initSession in background to validate cache
-            initSession();
-        } else {
-            // If code exists, ONLY run initSession (bypass cache to avoid conflicts)
-            console.log("Auth: Code detected. Waiting for session exchange.");
-            initSession();
+        } catch (error) {
+            console.error("Error upserting profile:", error);
         }
+    };
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    setUser(session?.user ?? null);
-                    if (session?.user) {
-                        // Ensure profile exists before stopping loading
-                        await upsertProfile(session.user);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setUser(user);
+                await upsertProfile(user);
 
-                        // Fetch latest to be sure
-                        const { data: profile } = await supabase
-                            .from("profiles")
-                            .select("*")
-                            .eq("id", session.user.id)
-                            .single();
-                        if (profile) setUserProfile(profile);
+                // Check for returnUrl
+                const returnUrl = sessionStorage.getItem("returnUrl");
+                if (returnUrl) {
+                    sessionStorage.removeItem("returnUrl");
+                    if (returnUrl.includes("/challenge")) {
+                        router.push(decodeURIComponent(returnUrl));
                     }
-                    setLoading(false);
-                } else if (event === 'SIGNED_OUT') {
-                    setUser(null);
-                    setUserProfile(null);
-                    setLoading(false);
-                    localStorage.removeItem(STORAGE_KEY_USER);
-                    localStorage.removeItem(STORAGE_KEY_PROFILE);
                 }
+            } else {
+                setUser(null);
+                setUserProfile(null);
+                localStorage.removeItem(STORAGE_KEY_USER);
+                localStorage.removeItem(STORAGE_KEY_PROFILE);
             }
-        );
+            setLoading(false);
+        });
 
-        return () => subscription.unsubscribe();
-
+        return () => unsubscribe();
     }, []);
 
-    // 2. Persist State to LocalStorage
+    // Persist State to LocalStorage
     useEffect(() => {
         if (user) {
-            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+            // We can't stringify the full Firebase User object easily due to circular refs or internal props, 
+            // but for basic persistence we might just rely on Firebase Auth's internal persistence 
+            // and the onAuthStateChanged listener which fires on load.
+            // However, to match previous behavior:
+            const safeUser = {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.displayName,
+                photoURL: user.photoURL
+            };
+            localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(safeUser));
         } else if (!loading) {
             localStorage.removeItem(STORAGE_KEY_USER);
         }
@@ -220,21 +131,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (!loading) {
             localStorage.removeItem(STORAGE_KEY_PROFILE);
         }
-    }, [userProfile, user, loading, params]);
+    }, [userProfile, user, loading]);
 
     const signInWithGoogle = async () => {
-        return await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: window.location.origin }
-        });
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            return result;
+        } catch (error) {
+            console.error("Error signing in with Google", error);
+            throw error;
+        }
     };
 
     const logout = async () => {
         console.log("Auth: Logging out...");
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_PROFILE);
         try {
-            await supabase.auth.signOut();
+            await signOut(auth);
             setUser(null);
             setUserProfile(null);
             localStorage.removeItem(STORAGE_KEY_USER);

@@ -7,34 +7,12 @@ import { useEffect, useState } from "react";
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, userProfile, loading, logout } = useAuth();
     const router = useRouter();
-    const params = new URLSearchParams(window.location.search);
-    const [code, setCode] = useState(false);
-
-    useEffect(() => {
-        if (params.has('code')) {
-            setCode(true);
-        }
-    }, [params]);
-
-
     useEffect(() => {
         if (!loading && !user) {
             const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
             router.push(`/login?returnUrl=${returnUrl}`);
         }
     }, [user, loading, router]);
-
-    useEffect(() => {
-        if (code) {
-            localStorage.removeItem('challengers_user');
-            // localStorage.removeItem('challengers_profile');
-            const newParams = new URLSearchParams(window.location.search);
-            newParams.delete('code');
-            const newSearch = newParams.toString();
-            router.replace(`${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`);
-            // window.location.reload();
-        }
-    }, [code, router]);
 
     if (loading) {
         return (

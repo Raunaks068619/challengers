@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { useParams } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import { Challenge, ChallengeParticipant } from "@/types";
-import { ChevronLeft, Share2, MapPin, Trophy, Flame, Copy, Camera } from "lucide-react";
+import { ChevronLeft, Share2, MapPin, Trophy, Flame, Camera } from "lucide-react";
 import { toast } from "sonner";
 
 import { useGetChallengeQuery, useGetParticipantDataQuery, useJoinChallengeMutation, useGetUserChallengeLogsQuery } from "@/lib/features/api/apiSlice";
@@ -27,13 +26,13 @@ export default function ChallengeDetailsPage() {
     const challenge = challengeData;
 
     const { data: participantData, isLoading: participantLoading } = useGetParticipantDataQuery(
-        { challengeId: id as string, userId: user?.id || '' },
-        { skip: !id || !user?.id }
+        { challengeId: id as string, userId: user?.uid || '' },
+        { skip: !id || !user?.uid }
     );
 
     const { data: logs = [] } = useGetUserChallengeLogsQuery(
-        { challengeId: id as string, userId: user?.id || '' },
-        { skip: !id || !user?.id }
+        { challengeId: id as string, userId: user?.uid || '' },
+        { skip: !id || !user?.uid }
     );
 
     const [joinChallenge, { isLoading: joining }] = useJoinChallengeMutation();
@@ -55,8 +54,8 @@ export default function ChallengeDetailsPage() {
     const handleJoin = async () => {
         if (!user || !challenge || !challenge.id) return;
         try {
-            console.log("handleJoin Challenge",{ challengeId: challenge.id, userId: user.id })
-            await joinChallenge({ challengeId: challenge.id, userId: user.id }).unwrap();
+            console.log("handleJoin Challenge", { challengeId: challenge.id, userId: user.uid })
+            await joinChallenge({ challengeId: challenge.id, userId: user.uid }).unwrap();
             toast.success("Joined challenge! +500 pts");
 
             // Clear auto_join param to prevent loops
@@ -68,13 +67,6 @@ export default function ChallengeDetailsPage() {
             console.error(error);
             toast.error("Failed to join");
         }
-    };
-
-    const handleCopyLink = () => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('auto_join', 'true');
-        navigator.clipboard.writeText(url.toString());
-        toast.success("Invite link copied!");
     };
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;

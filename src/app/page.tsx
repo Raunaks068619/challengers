@@ -5,7 +5,6 @@ import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useGetProfileQuery, useGetActiveChallengesQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
-import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -16,12 +15,12 @@ export default function Dashboard() {
   const router = useRouter();
 
   // RTK Query Hooks
-  const { data: userProfile, isLoading: profileLoading } = useGetProfileQuery(user?.id || '', {
-    skip: !user?.id,
+  const { data: userProfile, isLoading: profileLoading } = useGetProfileQuery(user?.uid || '', {
+    skip: !user?.uid,
   });
 
-  const { data: activeChallenges = [], isLoading: challengesLoading } = useGetActiveChallengesQuery(user?.id || '', {
-    skip: !user?.id,
+  const { data: activeChallenges = [], isLoading: challengesLoading } = useGetActiveChallengesQuery(user?.uid || '', {
+    skip: !user?.uid,
   });
 
   const [joinByCode, { isLoading: joining }] = useJoinChallengeByCodeMutation();
@@ -34,7 +33,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       // Run lazy check for missed logs
-      checkMissedLogs(user.id);
+      checkMissedLogs(user.uid);
     }
   }, [user]);
 
@@ -45,7 +44,7 @@ export default function Dashboard() {
     }
 
     try {
-      const result = await joinByCode({ code: joinCode.toUpperCase(), userId: user?.id || '' }).unwrap();
+      const result = await joinByCode({ code: joinCode.toUpperCase(), userId: user?.uid || '' }).unwrap();
       toast.success("Joined challenge successfully!");
       setShowJoinModal(false);
       setJoinCode("");
@@ -98,6 +97,9 @@ export default function Dashboard() {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Active Challenges</h2>
+              <Link href="/challenges/create" className="text-indigo-400 text-sm font-medium hover:text-indigo-300">
+                + New
+              </Link>
             </div>
 
             {/* Actions Row */}
@@ -151,8 +153,8 @@ export default function Dashboard() {
                 type="text"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="e.g. A1B2C3"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-center text-2xl font-mono tracking-widest mb-6 focus:outline-none focus:border-indigo-500 uppercase"
+                placeholder="E.G. A1B2C3"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-center text-2xl font-mono tracking-widest mb-6 focus:outline-none focus:border-indigo-500 uppercase placeholder:text-zinc-700"
                 maxLength={6}
               />
 
