@@ -84,7 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setUser(user);
-                await upsertProfile(user);
+                try {
+                    await upsertProfile(user);
+                } catch (e) {
+                    console.error("Profile load error:", e);
+                }
 
                 // Check for returnUrl
                 const returnUrl = sessionStorage.getItem("returnUrl");

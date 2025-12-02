@@ -5,7 +5,16 @@ import redis from '@/lib/redis';
 export async function getProfileFromCache(uid: string) {
     if (!redis) return null;
     try {
-        const data = await redis.get(`profile:${uid}`);
+        // Timeout after 2 seconds
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+        );
+
+        const data = await Promise.race([
+            redis.get(`profile:${uid}`),
+            timeoutPromise
+        ]) as string | null;
+
         console.log({ data });
 
         return data ? JSON.parse(data) : null;
@@ -18,8 +27,16 @@ export async function getProfileFromCache(uid: string) {
 export async function cacheProfile(uid: string, data: any) {
     if (!redis) return;
     try {
+        // Timeout after 2 seconds
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+        );
+
         // Cache for 1 hour (3600 seconds)
-        await redis.set(`profile:${uid}`, JSON.stringify(data), 'EX', 3600);
+        await Promise.race([
+            redis.set(`profile:${uid}`, JSON.stringify(data), 'EX', 3600),
+            timeoutPromise
+        ]);
     } catch (e) {
         console.error("Redis set error:", e);
     }
