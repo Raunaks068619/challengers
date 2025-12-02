@@ -23,8 +23,8 @@ export default function ProfilePage() {
                     {/* User Info */}
                     <div className="flex flex-col items-center p-6 bg-zinc-900 rounded-2xl border border-zinc-800">
                         <div className="h-24 w-24 rounded-full bg-zinc-800 overflow-hidden border-2 border-zinc-700 mb-4">
-                            {userProfile?.photo_url || user?.user_metadata?.avatar_url ? (
-                                <img src={(userProfile?.photo_url || user?.user_metadata?.avatar_url) as string} alt="Profile" className="w-full h-full object-cover" />
+                            {userProfile?.photo_url || user?.photoURL ? (
+                                <img src={(userProfile?.photo_url || user?.photoURL) as string} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-zinc-500 text-2xl">?</div>
                             )}
