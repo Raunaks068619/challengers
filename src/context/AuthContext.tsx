@@ -69,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     current_points: 500,
                     total_earned: 500,
                     total_lost: 0,
+                    bio: "",
+                    contact_phone: "",
+                    contact_email: u.email || "",
+                    first_name: u.displayName?.split(' ')[0] || "",
+                    last_name: u.displayName?.split(' ').slice(1).join(' ') || "",
                 };
                 await setDoc(userRef, newProfile);
                 setUserProfile(newProfile);

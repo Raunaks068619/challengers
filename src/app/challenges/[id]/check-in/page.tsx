@@ -7,10 +7,10 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Challenge } from "@/types";
 import Webcam from "react-webcam";
-import { Camera, MapPin, RefreshCw, CheckCircle, AlertTriangle, ChevronLeft } from "lucide-react";
+import { MapPin, RefreshCw, CheckCircle, ChevronLeft, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { useGetChallengeQuery, usePerformCheckInMutation } from "@/lib/features/api/apiSlice";
 
 // Haversine Formula for distance in meters
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -27,10 +27,6 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
     return R * c;
 };
-
-
-
-import { useGetChallengeQuery, usePerformCheckInMutation } from "@/lib/features/api/apiSlice";
 
 export default function CheckInPage() {
     const { id } = useParams();
@@ -56,6 +52,7 @@ export default function CheckInPage() {
 
     const [status, setStatus] = useState<"idle" | "success" | "already_checked_in">("idle");
     const [checkingLog, setCheckingLog] = useState(true);
+    const [note, setNote] = useState("");
 
     useEffect(() => {
         const checkLog = async () => {
@@ -87,6 +84,7 @@ export default function CheckInPage() {
             setLocationError("Geolocation is not supported");
             return;
         }
+        const toastId = toast.loading("Getting location...");
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const currentLat = position.coords.latitude;
@@ -97,9 +95,11 @@ export default function CheckInPage() {
                     const dist = calculateDistance(currentLat, currentLng, challenge.location_lat, challenge.location_lng);
                     setDistance(dist);
                 }
+                toast.success("Location verified!", { id: toastId });
             },
             (error) => {
                 setLocationError("Unable to retrieve location. Please allow access.");
+                toast.error("Location failed", { id: toastId });
                 console.error(error);
             },
             { enableHighAccuracy: true }
@@ -154,7 +154,8 @@ export default function CheckInPage() {
                 challengeId: challenge.id,
                 userId: user.uid,
                 imgSrc,
-                location
+                location,
+                note
             }).unwrap();
 
             setStatus("success");
@@ -171,13 +172,13 @@ export default function CheckInPage() {
     if (status === "already_checked_in") {
         return (
             <AuthGuard>
-                <div className="min-h-screen bg-zinc-950 text-white p-4 flex flex-col items-center justify-center text-center">
+                <div className="min-h-screen bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
                         <CheckCircle className="w-8 h-8 text-green-500" />
                     </div>
-                    <h1 className="text-2xl font-bold mb-2">You're all set!</h1>
-                    <p className="text-zinc-400 mb-6">You have already checked in for today.</p>
-                    <Link href="/" className="px-6 py-3 bg-zinc-800 rounded-xl font-medium hover:bg-zinc-700">
+                    <h1 className="text-xl font-bold mb-2">You're all set!</h1>
+                    <p className="text-muted-foreground mb-6 text-sm">You have already checked in for today.</p>
+                    <Link href="/" className="px-6 py-3 bg-muted rounded-xl font-medium hover:bg-muted/80 text-foreground transition-colors">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -188,13 +189,13 @@ export default function CheckInPage() {
     if (status === "success") {
         return (
             <AuthGuard>
-                <div className="min-h-screen bg-zinc-950 text-white p-4 flex flex-col items-center justify-center text-center">
-                    <div className="w-16 h-16 bg-indigo-500/20 rounded-full flex items-center justify-center mb-4">
-                        <Sparkles className="w-8 h-8 text-indigo-500" />
+                <div className="min-h-screen bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                        <Sparkles className="w-8 h-8 text-primary" />
                     </div>
-                    <h1 className="text-2xl font-bold mb-2">Great Job!</h1>
-                    <p className="text-zinc-400 mb-6">Check-in successful. Keep up the streak!</p>
-                    <Link href="/" className="px-6 py-3 bg-indigo-600 rounded-xl font-medium hover:bg-indigo-500">
+                    <h1 className="text-xl font-bold mb-2">Great Job!</h1>
+                    <p className="text-muted-foreground mb-6 text-sm">Check-in successful. Keep up the streak!</p>
+                    <Link href="/" className="px-6 py-3 bg-primary rounded-xl font-medium text-primary-foreground hover:opacity-90 transition-opacity">
                         Back to Dashboard
                     </Link>
                 </div>
@@ -204,101 +205,102 @@ export default function CheckInPage() {
 
     return (
         <AuthGuard>
-            <div className="min-h-screen bg-zinc-950 text-white p-4 pb-20">
-                <header className="flex items-center gap-4 mb-6">
-                    <Link href={`/challenges/${id}`} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800">
+            <div className="min-h-screen bg-background text-foreground pb-24">
+                {/* Header Overlay */}
+                <header className="absolute top-0 left-0 right-0 z-20 p-4 flex items-center gap-4 bg-gradient-to-b from-black/80 to-transparent">
+                    <Link href={`/challenges/${id}`} className="p-2 bg-black/40 backdrop-blur-md rounded-full hover:bg-black/60 text-white transition-colors">
                         <ChevronLeft className="w-5 h-5" />
                     </Link>
-                    <h1 className="text-xl font-bold">Daily Check-in</h1>
+                    <h1 className="text-base font-bold drop-shadow-md text-white">Daily Check-in</h1>
                 </header>
 
-                <div className="space-y-6">
-                    {/* Location Step */}
-                    <div className={`p-4 rounded-xl border ${location ? 'border-green-500/30 bg-green-500/10' : 'border-zinc-800 bg-zinc-900'}`}>
-                        <div className="flex items-start gap-3">
-                            <div className={`mt-1 p-1.5 rounded-full ${location ? 'bg-green-500' : 'bg-zinc-700'}`}>
-                                <MapPin className="w-4 h-4 text-white" />
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="font-medium mb-1">1. Verify Location</h3>
-                                {challenge.requires_location ? (
-                                    <>
-                                        {location ? (
-                                            <div>
-                                                <p className="text-sm text-green-400">Location captured</p>
-                                                {distance !== null && (
-                                                    <p className={`text-xs mt-1 ${distance <= (challenge.location_radius || 100) ? 'text-green-400' : 'text-red-400'}`}>
-                                                        Distance: {Math.round(distance)}m (Max: {challenge.location_radius || 100}m)
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={getLocation}
-                                                className="text-sm text-indigo-400 hover:text-indigo-300 font-medium"
-                                            >
-                                                Tap to verify location
-                                            </button>
-                                        )}
-                                    </>
-                                ) : (
-                                    <p className="text-sm text-zinc-500">Location not required for this challenge.</p>
-                                )}
-                                {locationError && <p className="text-xs text-red-400 mt-1">{locationError}</p>}
+                {/* 1. Image Capture (Full Width, No Gutter) */}
+                <div className="relative w-full aspect-[3/4] bg-muted">
+                    {imgSrc ? (
+                        <>
+                            <img src={imgSrc} alt="Selfie" className="w-full h-full object-cover" />
+                            <button
+                                onClick={retake}
+                                className="absolute bottom-4 right-4 p-3 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70 z-20 transition-colors"
+                            >
+                                <RefreshCw className="w-6 h-6" />
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Webcam
+                                audio={false}
+                                ref={webcamRef}
+                                screenshotFormat="image/jpeg"
+                                videoConstraints={{ facingMode: "user" }}
+                                className="w-full h-full object-cover"
+                                onUserMediaError={() => setCameraError(true)}
+                            />
+                            {cameraError && (
+                                <div className="absolute inset-0 flex items-center justify-center text-center p-4 bg-muted">
+                                    <p className="text-destructive text-sm">Camera access denied or not available.</p>
+                                </div>
+                            )}
+                            <button
+                                onClick={capture}
+                                className="absolute bottom-8 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border-4 border-white flex items-center justify-center z-20 hover:scale-105 transition-transform"
+                            >
+                                <div className="w-16 h-16 bg-white rounded-full active:scale-90 transition-transform" />
+                            </button>
+                        </>
+                    )}
+                </div>
+
+                <div className="p-4 space-y-6 -mt-4 relative z-10 bg-background rounded-t-3xl border-t border-border">
+                    <div className="w-12 h-1 bg-muted rounded-full mx-auto mb-2" />
+
+                    {/* 2. Location (Conditional) */}
+                    {challenge.requires_location && (
+                        <div className={`p-4 rounded-xl border ${location ? 'border-green-500/30 bg-green-500/10' : 'border-border bg-card'}`}>
+                            <div className="flex items-start gap-3">
+                                <div className={`mt-1 p-1.5 rounded-full ${location ? 'bg-green-500' : 'bg-muted'}`}>
+                                    <MapPin className={`w-4 h-4 ${location ? 'text-white' : 'text-muted-foreground'}`} />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-medium mb-1 text-sm">Location Verification</h3>
+                                    {location ? (
+                                        <div>
+                                            <p className="text-xs text-green-500">Location captured</p>
+                                            {distance !== null && (
+                                                <p className={`text-[10px] mt-1 ${distance <= (challenge.location_radius || 100) ? 'text-green-500' : 'text-destructive'}`}>
+                                                    Distance: {Math.round(distance)}m (Max: {challenge.location_radius || 100}m)
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={getLocation}
+                                            className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                                        >
+                                            Tap to verify location
+                                        </button>
+                                    )}
+                                    {locationError && <p className="text-xs text-destructive mt-1">{locationError}</p>}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Camera Step */}
-                    <div className={`p-4 rounded-xl border ${imgSrc ? 'border-green-500/30 bg-green-500/10' : 'border-zinc-800 bg-zinc-900'}`}>
-                        <div className="flex items-start gap-3">
-                            <div className={`mt-1 p-1.5 rounded-full ${imgSrc ? 'bg-green-500' : 'bg-zinc-700'}`}>
-                                <Camera className="w-4 h-4 text-white" />
-                            </div>
-                            <div className="flex-1 w-full">
-                                <h3 className="font-medium mb-3">2. Take Selfie</h3>
-
-                                {imgSrc ? (
-                                    <div className="relative rounded-lg overflow-hidden aspect-[3/4]">
-                                        <img src={imgSrc} alt="Selfie" className="w-full h-full object-cover" />
-                                        <button
-                                            onClick={retake}
-                                            className="absolute bottom-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-black/70"
-                                        >
-                                            <RefreshCw className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="rounded-lg overflow-hidden aspect-[3/4] bg-black relative">
-                                        <Webcam
-                                            audio={false}
-                                            ref={webcamRef}
-                                            screenshotFormat="image/jpeg"
-                                            videoConstraints={{ facingMode: "user" }}
-                                            className="w-full h-full object-cover"
-                                            onUserMediaError={() => setCameraError(true)}
-                                        />
-                                        {cameraError && (
-                                            <div className="absolute inset-0 flex items-center justify-center text-center p-4">
-                                                <p className="text-red-400 text-sm">Camera access denied or not available.</p>
-                                            </div>
-                                        )}
-                                        <button
-                                            onClick={capture}
-                                            className="absolute bottom-6 left-1/2 -translate-x-1/2 w-16 h-16 rounded-full border-4 border-white flex items-center justify-center"
-                                        >
-                                            <div className="w-14 h-14 bg-white rounded-full active:scale-90 transition-transform" />
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                    {/* 3. Note */}
+                    <div>
+                        <label className="block text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wider">Tell us about today / set your goals</label>
+                        <textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            className="w-full bg-card border border-border rounded-xl p-4 text-base focus:outline-none focus:ring-2 focus:ring-primary min-h-[120px] placeholder:text-muted-foreground/50 text-foreground transition-all"
+                            placeholder="I crushed it today because..."
+                        />
                     </div>
 
                     <button
                         onClick={handleCheckIn}
                         disabled={submitting || (challenge.requires_location && (!location || (distance !== null && distance > (challenge.location_radius || 100)))) || !imgSrc}
-                        className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-bold text-lg shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all"
                     >
                         {submitting ? "Verifying..." : "Complete Check-in"}
                     </button>
@@ -308,7 +310,6 @@ export default function CheckInPage() {
     );
 }
 
-// Missing icons import fix
 function Sparkles({ className }: { className?: string }) {
     return (
         <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">

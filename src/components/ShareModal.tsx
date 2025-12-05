@@ -43,9 +43,9 @@ export default function ShareModal({ isOpen, onClose, challengeTitle, joinCode, 
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
             <div
-                className="bg-zinc-900 rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm border border-zinc-800 animate-in slide-in-from-bottom-10 duration-300"
+                className="bg-zinc-900 rounded-2xl p-6 w-full max-w-sm border border-zinc-800 animate-in zoom-in-95 duration-300"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center mb-6">

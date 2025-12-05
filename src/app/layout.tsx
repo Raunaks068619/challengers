@@ -1,13 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
 import StoreProvider from "./StoreProvider";
 import { Suspense } from "react";
-import RefreshButton from "@/components/RefreshButton";
+import BottomNav from "@/components/BottomNav";
+import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({ subsets: ["latin"] });
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "900"],
+  variable: "--font-poppins",
+});
 
 export const metadata: Metadata = {
   title: "Challengers",
@@ -22,6 +27,8 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import NotificationManager from "@/components/NotificationManager";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,13 +36,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={poppins.className}>
         <StoreProvider>
           <Suspense fallback={null}>
             <AuthProvider>
-              {children}
-              <RefreshButton />
-              <Toaster position="top-center" theme="dark" />
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange
+              >
+                <NotificationManager />
+                {children}
+                <BottomNav />
+                <Toaster position="top-center" />
+              </ThemeProvider>
             </AuthProvider>
           </Suspense>
         </StoreProvider>

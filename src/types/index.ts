@@ -14,8 +14,10 @@ export interface Challenge {
     requires_location: boolean;
     location_lat?: number | null;
     location_lng?: number | null;
-    location_radius?: number | null;
+    location_radius?: number; // in meters
     join_code?: string;
+    banner_url?: string | null;
+    rest_days?: number[]; // 0=Sunday, 1=Monday, etc.
 }
 
 export interface UserProfile {
@@ -23,6 +25,11 @@ export interface UserProfile {
     email: string;
     display_name: string;
     photo_url: string | null;
+    first_name?: string;
+    last_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    bio?: string;
     // Gamification
     total_earned: number;
     total_lost: number;

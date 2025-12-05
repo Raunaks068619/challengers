@@ -14,9 +14,11 @@ import {
     orderBy,
     limit,
     getCountFromServer,
-    documentId
+    documentId,
+    deleteDoc
 } from 'firebase/firestore';
 import { Challenge, UserProfile, ChallengeParticipant } from '@/types';
+import { uploadImageAction } from '@/app/actions/upload';
 
 export const apiSlice = createApi({
     reducerPath: 'api',
@@ -68,7 +70,7 @@ export const apiSlice = createApi({
                             challenges.push({
                                 ...cSnap.data(),
                                 id: cSnap.id,
-                                challenge_participants: [{ count: countSnap.data().count }] // Mocking structure expected by UI
+                                participants_count: countSnap.data().count
                             });
                         }
                     }
@@ -126,7 +128,7 @@ export const apiSlice = createApi({
             },
             providesTags: ['Participant'],
         }),
-        joinChallenge: builder.mutation<void, { challengeId: string; userId: string }>({
+        joinChallenge: builder.mutation<null, { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
                 try {
                     // Check if already joined
@@ -152,7 +154,7 @@ export const apiSlice = createApi({
                             created_at: new Date().toISOString()
                         });
                     }
-                    return { data: undefined };
+                    return { data: null };
                 } catch (e: any) {
                     console.error("Join Challenge Error:", e);
                     return { error: e?.message || "An unexpected error occurred" };
@@ -200,6 +202,27 @@ export const apiSlice = createApi({
             },
             invalidatesTags: ['Challenge', 'Participant'],
         }),
+        leaveChallenge: builder.mutation<null, { challengeId: string; userId: string }>({
+            queryFn: async ({ challengeId, userId }) => {
+                try {
+                    const q = query(
+                        collection(db, "challenge_participants"),
+                        where("challenge_id", "==", challengeId),
+                        where("user_id", "==", userId)
+                    );
+                    const snap = await getDocs(q);
+
+                    if (!snap.empty) {
+                        await deleteDoc(snap.docs[0].ref);
+                    }
+                    return { data: null };
+                } catch (e: any) {
+                    console.error("Leave Challenge Error:", e);
+                    return { error: e?.message || "An unexpected error occurred" };
+                }
+            },
+            invalidatesTags: ['Challenge', 'Participant'],
+        }),
         createChallenge: builder.mutation<string, { challenge: Partial<Challenge>; userId: string }>({
             queryFn: async ({ challenge, userId }) => {
                 try {
@@ -230,28 +253,35 @@ export const apiSlice = createApi({
             },
             invalidatesTags: ['Challenge'],
         }),
-        performCheckIn: builder.mutation<void, {
+        performCheckIn: builder.mutation<null, {
             challengeId: string;
             userId: string;
             imgSrc: string;
-            location?: { lat: number; lng: number } | null
+            location?: { lat: number; lng: number } | null;
+            note?: string;
         }>({
-            queryFn: async ({ challengeId, userId, imgSrc, location }) => {
+            queryFn: async ({ challengeId, userId, imgSrc, location, note }) => {
                 try {
-                    // 1. Upload Image (KEEP SUPABASE STORAGE)
+                    // 1. Upload Image (USE SERVER ACTION)
                     const blob = await (await fetch(imgSrc)).blob();
-                    const fileExt = "jpg";
-                    const fileName = `${Date.now()}_checkin.${fileExt}`;
-                    const filePath = `checkins/${challengeId}/${userId}/${fileName}`;
+                    const file = new File([blob], "checkin.jpg", { type: "image/jpeg" });
 
-                    const { error: uploadError } = await supabase.storage
-                        .from("challengers")
-                        .upload(filePath, blob, { contentType: 'image/jpeg' });
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('userId', userId);
+                    formData.append('bucket', 'challengers');
+                    formData.append('path', `checkins/${challengeId}/${userId}`);
 
-                    if (uploadError) return { error: uploadError.message || "Upload failed" };
+                    // We need to dynamically import the action or use it if available in scope.
+                    // Since this is a client-side file (apiSlice runs in client), we can import the server action.
+                    // However, apiSlice is a .ts file, not a component.
+                    // Server actions can be imported in client modules.
 
-                    const { data: publicData } = supabase.storage.from("challengers").getPublicUrl(filePath);
-                    const downloadURL = publicData.publicUrl;
+                    // NOTE: We need to make sure uploadImageAction is imported at the top of the file.
+                    // For now, I will assume it is imported. I will add the import in a separate step or include it here if possible.
+                    // But replace_file_content works on chunks. I'll use the imported action.
+
+                    const downloadURL = await uploadImageAction(formData);
 
                     // 2. Create Log (FIREBASE)
                     const today = new Date().toISOString().split('T')[0];
@@ -265,6 +295,7 @@ export const apiSlice = createApi({
                         lat: location?.lat || null,
                         lng: location?.lng || null,
                         verified: true,
+                        note: note || "",
                     });
 
                     // 3. Update Streak & Points
@@ -308,7 +339,7 @@ export const apiSlice = createApi({
                         }
                     }
 
-                    return { data: undefined };
+                    return { data: null };
                 } catch (error: any) {
                     console.error("CheckIn Error:", error);
                     return { error: error?.message || "An unexpected error occurred" };
@@ -336,6 +367,78 @@ export const apiSlice = createApi({
             },
             providesTags: (result, error, arg) => [{ type: 'Challenge', id: arg.challengeId }],
         }),
+        getUserWeeklyLogs: builder.query<any[], string>({
+            queryFn: async (userId) => {
+                try {
+                    const today = new Date();
+                    const lastWeek = new Date(today);
+                    lastWeek.setDate(today.getDate() - 7);
+                    const dateString = lastWeek.toISOString().split('T')[0];
+
+                    const q = query(
+                        collection(db, "daily_logs"),
+                        where("user_id", "==", userId),
+                        where("date", ">=", dateString)
+                    );
+                    const snap = await getDocs(q);
+                    const logs = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+
+                    return { data: logs };
+                } catch (e: any) {
+                    console.error("Error fetching weekly logs:", e);
+                    return { error: e.message };
+                }
+            },
+            providesTags: ['Participant'],
+        }),
+        getAllParticipants: builder.query<UserProfile[], string>({
+            queryFn: async (userId) => {
+                try {
+                    // 1. Get all challenges the user is part of
+                    const pRef = collection(db, "challenge_participants");
+                    const pQuery = query(pRef, where("user_id", "==", userId));
+                    const pSnap = await getDocs(pQuery);
+
+                    const challengeIds = pSnap.docs.map(d => d.data().challenge_id);
+
+                    if (!challengeIds.length) return { data: [] };
+
+                    // 2. Get all participants for these challenges
+                    // Note: Firestore 'in' query is limited to 10. For scalability, we should batch or do multiple queries.
+                    // For now, assuming < 10 active challenges or just fetching all participants for each challenge.
+
+                    const participantUserIds = new Set<string>();
+
+                    for (const cid of challengeIds) {
+                        const cpQuery = query(collection(db, "challenge_participants"), where("challenge_id", "==", cid));
+                        const cpSnap = await getDocs(cpQuery);
+                        cpSnap.docs.forEach(doc => {
+                            const pid = doc.data().user_id;
+                            if (pid !== userId) { // Exclude self
+                                participantUserIds.add(pid);
+                            }
+                        });
+                    }
+
+                    if (participantUserIds.size === 0) return { data: [] };
+
+                    // 3. Fetch user profiles
+                    const profiles: UserProfile[] = [];
+                    for (const pid of Array.from(participantUserIds)) {
+                        const userDoc = await getDoc(doc(db, "profiles", pid));
+                        if (userDoc.exists()) {
+                            profiles.push(userDoc.data() as UserProfile);
+                        }
+                    }
+
+                    return { data: profiles };
+                } catch (e: any) {
+                    console.error("Error fetching participants:", e);
+                    return { error: e.message };
+                }
+            },
+            providesTags: ['Participant'],
+        }),
     }),
 });
 
@@ -348,5 +451,8 @@ export const {
     useCreateChallengeMutation,
     usePerformCheckInMutation,
     useGetUserChallengeLogsQuery,
-    useJoinChallengeByCodeMutation
+    useJoinChallengeByCodeMutation,
+    useLeaveChallengeMutation,
+    useGetUserWeeklyLogsQuery,
+    useGetAllParticipantsQuery
 } = apiSlice;
