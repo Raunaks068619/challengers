@@ -35,6 +35,7 @@ export interface UserProfile {
     total_lost: number;
     current_points: number;
     fcm_token?: string | null;
+    install_prompt_seen?: boolean;
 }
 
 export interface ChallengeParticipant {
@@ -44,4 +45,6 @@ export interface ChallengeParticipant {
     streak_current: number;
     streak_best: number;
     is_active: boolean;
+
+    points_history?: { date: string; points: number; taskStatus?: 'completed' | 'missed' }[];
 }

@@ -6,11 +6,12 @@ import Link from "next/link";
 import { useEffect } from "react";
 import TaskProgressCard from "@/components/TaskProgressCard";
 import ParticipantsCard from "@/components/ParticipantsCard";
-import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery } from "@/lib/features/api/apiSlice";
+import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useGetChallengePointsHistoryQuery } from "@/lib/features/api/apiSlice";
 import { checkMissedLogs } from "@/lib/gamification";
 
-import { Plus } from "lucide-react";
+import { Plus, ArrowRight } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import ProgressChart from "@/components/ProgressChart";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -33,6 +34,15 @@ export default function Dashboard() {
     skip: !user?.uid,
   });
 
+
+
+  // Get the first active challenge ID for the chart
+  const firstChallengeId = activeChallenges.length > 0 ? activeChallenges[0].id : null;
+
+  const { data: historyData = [] } = useGetChallengePointsHistoryQuery(firstChallengeId || '', {
+    skip: !firstChallengeId
+  });
+
   // Calculate Task Progress (Daily)
   // Denominator: Active Challenges that are active today (not a rest day)
   // Numerator: Actual logs created today
@@ -50,6 +60,8 @@ export default function Dashboard() {
   }, 0);
 
   const completedDailyTasks = weeklyLogs.filter((log: any) => log.date === todayDateString).length;
+
+
 
   useEffect(() => {
     if (user) {
@@ -89,21 +101,29 @@ export default function Dashboard() {
                   <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Lost</p>
                   <p className="text-3xl font-medium text-foreground">{userProfile?.total_lost || 0}</p>
                 </div>
-                <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-                  <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Active Challenges</p>
-                  <p className="text-3xl font-medium text-foreground">{activeChallenges.length}</p>
-                </div>
-                <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-                  <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Total Earned</p>
-                  <p className="text-3xl font-medium text-foreground">{userProfile?.total_earned || 0}</p>
-                </div>
+
+                {/* Active Challenges Card - Clickable */}
+                <Link href="/challenges" className="bg-card rounded-2xl p-4 border border-border shadow-sm hover:bg-muted/50 transition-colors flex flex-col justify-between">
+                  <div>
+                    <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Active Challenges</p>
+                    <p className="text-3xl font-medium text-foreground">{activeChallenges.length}</p>
+                  </div>
+                  <div className="mt-2 flex items-center text-xs text-primary font-medium">
+                    View All <ArrowRight className="w-3 h-3 ml-1" />
+                  </div>
+                </Link>
 
                 {/* Participants Card */}
                 <ParticipantsCard
                   participants={participants}
-                  className="col-span-1"
+                  className="col-span-1 h-full"
                 />
               </div>
+
+              {/* Progress Chart */}
+              {activeChallenges.length > 0 && (
+                <ProgressChart data={historyData} />
+              )}
             </div>
           </section>
         </main>

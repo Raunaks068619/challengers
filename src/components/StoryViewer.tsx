@@ -47,7 +47,7 @@ export default function StoryViewer({ isOpen, onClose, logs, initialIndex = 0 }:
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 bg-black flex flex-col"
+                    className="fixed inset-0 z-[100] bg-black flex flex-col overflow-hidden"
                 >
                     {/* Progress Bar */}
                     <div className="absolute top-0 left-0 right-0 z-20 p-2 flex gap-1">

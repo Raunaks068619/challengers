@@ -106,12 +106,94 @@ export default function CheckInPage() {
         );
     };
 
-    const capture = useCallback(() => {
-        const imageSrc = webcamRef.current?.getScreenshot();
-        if (imageSrc) {
-            setImgSrc(imageSrc);
+    const [countdown, setCountdown] = useState<number | null>(null);
+
+    const capture = useCallback(async (): Promise<string | null> => {
+        // 1. Try ImageCapture API (Modern Android/Desktop) - Solution A
+        try {
+            const stream = webcamRef.current?.video?.srcObject as MediaStream;
+            const track = stream?.getVideoTracks()[0];
+
+            // @ts-ignore - ImageCapture is experimental
+            if (track && window.ImageCapture) {
+                // @ts-ignore
+                const imageCapture = new window.ImageCapture(track);
+
+                // This takes a high-res photo using camera hardware
+                const blob = await imageCapture.takePhoto();
+
+                // Post-process to flip the image (selfies are usually mirrored)
+                const bitmap = await createImageBitmap(blob);
+                const canvas = document.createElement('canvas');
+                canvas.width = bitmap.width;
+                canvas.height = bitmap.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.translate(canvas.width, 0);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(bitmap, 0, 0);
+                    const imageUrl = canvas.toDataURL('image/jpeg', 0.92);
+                    console.log("Captured using ImageCapture API (High Res)");
+                    return imageUrl;
+                }
+            }
+        } catch (e) {
+            console.warn("ImageCapture failed, falling back to canvas", e);
         }
+
+        // 2. Fallback: Canvas with High-Res Stream - Solution B
+        const video = webcamRef.current?.video;
+        if (video) {
+            const canvas = document.createElement('canvas');
+            // Use full video resolution (which should be 4K if supported)
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                // Apply filters as requested
+                ctx.filter = 'contrast(1.2) saturate(1.1)';
+
+                // Flip the image to match the mirrored preview
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const imageSrc = canvas.toDataURL('image/jpeg', 0.92);
+                console.log("Captured using Canvas Fallback (4K Constraints)");
+                return imageSrc;
+            }
+        }
+        return null;
     }, [webcamRef]);
+
+    const startCapture = async () => {
+        setCountdown(3);
+
+        // Give UI a moment to render the "3"
+        await new Promise(r => setTimeout(r, 100));
+
+        // Start capture in background (this might take time)
+        const capturePromise = capture();
+
+        // Run countdown
+        await new Promise(r => setTimeout(r, 1000));
+        setCountdown(2);
+        await new Promise(r => setTimeout(r, 1000));
+        setCountdown(1);
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Wait for capture to finish if it hasn't already
+        const imageUrl = await capturePromise;
+
+        setCountdown(null);
+        if (imageUrl) {
+            setImgSrc(imageUrl);
+        } else {
+            toast.error("Failed to capture image. Please try again.");
+        }
+    };
 
     const retake = () => {
         setImgSrc(null);
@@ -232,8 +314,12 @@ export default function CheckInPage() {
                                 audio={false}
                                 ref={webcamRef}
                                 screenshotFormat="image/jpeg"
-                                videoConstraints={{ facingMode: "user" }}
-                                className="w-full h-full object-cover"
+                                videoConstraints={{
+                                    facingMode: "user",
+                                    width: { ideal: 4096 },
+                                    height: { ideal: 2160 }
+                                }}
+                                className="w-full h-full object-cover scale-x-[-1]"
                                 onUserMediaError={() => setCameraError(true)}
                             />
                             {cameraError && (
@@ -241,12 +327,24 @@ export default function CheckInPage() {
                                     <p className="text-destructive text-sm">Camera access denied or not available.</p>
                                 </div>
                             )}
-                            <button
-                                onClick={capture}
-                                className="absolute bottom-8 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border-4 border-white flex items-center justify-center z-20 hover:scale-105 transition-transform"
-                            >
-                                <div className="w-16 h-16 bg-white rounded-full active:scale-90 transition-transform" />
-                            </button>
+
+                            {/* Countdown Overlay */}
+                            {countdown !== null && (
+                                <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/10">
+                                    <span className="text-3xl font-bold text-white drop-shadow-lg animate-pulse">
+                                        {countdown}
+                                    </span>
+                                </div>
+                            )}
+
+                            {!countdown && (
+                                <button
+                                    onClick={startCapture}
+                                    className="absolute bottom-8 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border-4 border-white flex items-center justify-center z-20 hover:scale-105 transition-transform"
+                                >
+                                    <div className="w-16 h-16 bg-white rounded-full active:scale-90 transition-transform" />
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -305,8 +403,8 @@ export default function CheckInPage() {
                         {submitting ? "Verifying..." : "Complete Check-in"}
                     </button>
                 </div>
-            </div>
-        </AuthGuard>
+            </div >
+        </AuthGuard >
     );
 }
 

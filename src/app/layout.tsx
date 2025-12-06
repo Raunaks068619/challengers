@@ -47,7 +47,9 @@ export default function RootLayout({
                 disableTransitionOnChange
               >
                 <NotificationManager />
-                {children}
+                <div className="pb-20">
+                  {children}
+                </div>
                 <BottomNav />
                 <Toaster position="top-center" />
               </ThemeProvider>

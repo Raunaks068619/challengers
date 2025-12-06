@@ -7,6 +7,14 @@ import { useEffect, useState } from "react";
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, userProfile, loading, logout } = useAuth();
     const router = useRouter();
+    const [showError, setShowError] = useState(false);
+
+    useEffect(() => {
+        // Delay showing the error for 10 seconds to allow for slow profile loading
+        const timer = setTimeout(() => setShowError(true), 10000);
+        return () => clearTimeout(timer);
+    }, []);
+
     useEffect(() => {
         if (!loading && !user) {
             const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
@@ -14,7 +22,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, router]);
 
-    if (loading) {
+    // Show loading if:
+    // 1. Auth is loading
+    // 2. Auth is done, User exists, but Profile is missing AND we haven't hit the 10s timeout yet
+    if (loading || (user && !userProfile && !showError)) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
                 <div className="flex flex-col items-center gap-4">
@@ -29,7 +40,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         return null;
     }
 
-    if (!userProfile) {
+    if (!userProfile && showError) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-4 text-center">
                 <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">

@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     contact_email: u.email || "",
                     first_name: u.displayName?.split(' ')[0] || "",
                     last_name: u.displayName?.split(' ').slice(1).join(' ') || "",
+                    install_prompt_seen: false,
                 };
                 await setDoc(userRef, newProfile);
                 setUserProfile(newProfile);
@@ -114,6 +115,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         return () => unsubscribe();
     }, []);
+
+    // Redirect to onboarding if needed
+    useEffect(() => {
+        if (userProfile && userProfile.install_prompt_seen === false) {
+            // Check if we are already on the onboarding page to avoid loops
+            if (window.location.pathname !== '/onboarding/install') {
+                router.push('/onboarding/install');
+            }
+        }
+    }, [userProfile, router]);
 
     // Persist State to LocalStorage
     useEffect(() => {

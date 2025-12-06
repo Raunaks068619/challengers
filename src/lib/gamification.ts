@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, addDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, arrayUnion } from "firebase/firestore";
 import { toast } from "sonner";
 
 export const checkMissedLogs = async (userId: string) => {
@@ -69,7 +69,8 @@ export const checkMissedLogs = async (userId: string) => {
 
                 await updateDoc(pDoc.ref, {
                     current_points: newPoints,
-                    streak_current: 0
+                    streak_current: 0,
+                    points_history: arrayUnion({ date: yesterdayStr, points: newPoints, taskStatus: 'missed' })
                 });
 
                 // C. Update Profile (Total Lost / Treat Pool)

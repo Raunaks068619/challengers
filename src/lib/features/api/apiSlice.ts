@@ -15,7 +15,8 @@ import {
     limit,
     getCountFromServer,
     documentId,
-    deleteDoc
+    deleteDoc,
+    arrayUnion
 } from 'firebase/firestore';
 import { Challenge, UserProfile, ChallengeParticipant } from '@/types';
 import { uploadImageAction } from '@/app/actions/upload';
@@ -70,7 +71,8 @@ export const apiSlice = createApi({
                             challenges.push({
                                 ...cSnap.data(),
                                 id: cSnap.id,
-                                participants_count: countSnap.data().count
+                                participants_count: countSnap.data().count,
+                                participant: pSnap.docs.find(d => d.data().challenge_id === cid)?.data() // Attach current user's participant data
                             });
                         }
                     }
@@ -151,8 +153,20 @@ export const apiSlice = createApi({
                             user_id: userId,
                             current_points: 500,
                             is_active: true,
-                            created_at: new Date().toISOString()
+                            created_at: new Date().toISOString(),
+                            points_history: [{ date: new Date().toISOString().split('T')[0], points: 500 }]
                         });
+
+                        // Update Global Profile Points
+                        const profileRef = doc(db, "profiles", userId);
+                        const profileSnap = await getDoc(profileRef);
+                        if (profileSnap.exists()) {
+                            const profile = profileSnap.data();
+                            await updateDoc(profileRef, {
+                                current_points: (profile.current_points || 0) + 500,
+                                total_earned: (profile.total_earned || 0) + 500 // Assuming initial points count as earned? Or just current? User said "stacked in your total current points". I'll update current. User said "Remove Total earned points stats... its o no use", so maybe I don't need to update total_earned, but for consistency I might. Let's just update current_points as requested.
+                            });
+                        }
                     }
                     return { data: null };
                 } catch (e: any) {
@@ -191,8 +205,19 @@ export const apiSlice = createApi({
                             user_id: userId,
                             current_points: 500,
                             is_active: true,
-                            created_at: new Date().toISOString()
+                            created_at: new Date().toISOString(),
+                            points_history: [{ date: new Date().toISOString().split('T')[0], points: 500 }]
                         });
+
+                        // Update Global Profile Points
+                        const profileRef = doc(db, "profiles", userId);
+                        const profileSnap = await getDoc(profileRef);
+                        if (profileSnap.exists()) {
+                            const profile = profileSnap.data();
+                            await updateDoc(profileRef, {
+                                current_points: (profile.current_points || 0) + 500
+                            });
+                        }
                     }
 
                     return { data: challengeId };
@@ -243,7 +268,8 @@ export const apiSlice = createApi({
                         user_id: userId,
                         current_points: 500,
                         is_active: true,
-                        created_at: new Date().toISOString()
+                        created_at: new Date().toISOString(),
+                        points_history: [{ date: new Date().toISOString().split('T')[0], points: 500, taskStatus: 'completed' }]
                     });
 
                     return { data: docRef.id };
@@ -318,11 +344,15 @@ export const apiSlice = createApi({
                         if (newStreak % 3 === 0) {
                             pointsToAdd = 100;
                         }
-
                         await updateDoc(pDoc.ref, {
                             streak_current: newStreak,
                             streak_best: newBestStreak,
-                            current_points: (participant.current_points || 0) + pointsToAdd
+                            current_points: (participant.current_points || 0) + pointsToAdd,
+                            points_history: arrayUnion({
+                                date: new Date().toISOString().split('T')[0],
+                                points: (participant.current_points || 0) + pointsToAdd,
+                                taskStatus: 'completed'
+                            })
                         });
 
                         // Update Global Profile Points
@@ -439,6 +469,108 @@ export const apiSlice = createApi({
             },
             providesTags: ['Participant'],
         }),
+        getChallengePointsHistory: builder.query<any[], string>({
+            queryFn: async (challengeId) => {
+                try {
+                    if (!challengeId) return { data: [] };
+
+                    // 1. Fetch Participants
+                    const pQuery = query(collection(db, "challenge_participants"), where("challenge_id", "==", challengeId));
+                    const pSnap = await getDocs(pQuery);
+                    const participants = pSnap.docs.map(d => d.data());
+                    const participantIds = participants.map(p => p.user_id);
+
+                    // 2. Fetch User Profiles (for names)
+                    const userMap: Record<string, string> = {};
+                    for (const uid of participantIds) {
+                        const uSnap = await getDoc(doc(db, "profiles", uid));
+                        if (uSnap.exists()) {
+                            const data = uSnap.data();
+                            userMap[uid] = data.display_name || data.email?.split('@')[0] || "User";
+                        } else {
+                            userMap[uid] = "Unknown";
+                        }
+                    }
+
+                    // 3. Construct History from `points_history` field
+                    // We need to merge all histories into a single timeline
+                    const historyMap: Record<string, any> = {}; // date -> { date, User1: 500, User2: 400 }
+
+                    participants.forEach(p => {
+                        const name = userMap[p.user_id];
+                        const history = p.points_history || [];
+
+                        // If no history (legacy data), assume current points for today? 
+                        // Or maybe just skip? For now, let's try to use what we have.
+                        if (history.length === 0) {
+                            // Fallback for legacy: just show current points for today
+                            const today = new Date().toISOString().split('T')[0];
+                            if (!historyMap[today]) historyMap[today] = { date: today, name: new Date().toLocaleDateString('en-US', { weekday: 'short' }) };
+                            historyMap[today][name] = p.current_points || 500;
+                        } else {
+                            history.forEach((entry: any) => {
+                                if (!historyMap[entry.date]) {
+                                    const d = new Date(entry.date);
+                                    historyMap[entry.date] = {
+                                        date: entry.date,
+                                        name: d.toLocaleDateString('en-US', { weekday: 'short' })
+                                    };
+                                }
+                                historyMap[entry.date][name] = entry.points;
+                            });
+                        }
+                    });
+
+                    // Fill in gaps?
+                    // The chart needs continuous data. If User A has data for Mon and Wed, but not Tue, we should carry forward Mon's value.
+                    // 1. Get all unique dates and sort them
+                    const sortedDates = Object.keys(historyMap).sort();
+
+                    if (sortedDates.length === 0) return { data: [] };
+
+                    // 2. Create continuous timeline
+                    const startDate = new Date(sortedDates[0]);
+                    const endDate = new Date(); // Today
+                    const finalHistory: any[] = [];
+
+                    const lastKnownPoints: Record<string, number> = {};
+                    participantIds.forEach(uid => lastKnownPoints[userMap[uid]] = 500); // Default start
+
+                    const d = new Date(startDate);
+                    while (d <= endDate) {
+                        const dateStr = d.toISOString().split('T')[0];
+                        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+
+                        const entry: any = { name: dayName, date: dateStr };
+
+                        // Update last known points if we have data for this date
+                        if (historyMap[dateStr]) {
+                            participantIds.forEach(uid => {
+                                const name = userMap[uid];
+                                if (historyMap[dateStr][name] !== undefined) {
+                                    lastKnownPoints[name] = historyMap[dateStr][name];
+                                }
+                            });
+                        }
+
+                        // Assign points to entry
+                        participantIds.forEach(uid => {
+                            const name = userMap[uid];
+                            entry[name] = lastKnownPoints[name];
+                        });
+
+                        finalHistory.push(entry);
+                        d.setDate(d.getDate() + 1);
+                    }
+
+                    return { data: finalHistory };
+                } catch (e: any) {
+                    console.error("Error fetching history:", e);
+                    return { error: e.message };
+                }
+            },
+            providesTags: ['Challenge', 'Participant'],
+        }),
     }),
 });
 
@@ -454,5 +586,6 @@ export const {
     useJoinChallengeByCodeMutation,
     useLeaveChallengeMutation,
     useGetUserWeeklyLogsQuery,
-    useGetAllParticipantsQuery
+    useGetAllParticipantsQuery,
+    useGetChallengePointsHistoryQuery
 } = apiSlice;

@@ -116,6 +116,8 @@ export default function ChallengeDetailsPage() {
                 <PageHeader
                     title={challenge.title}
                     backbutton={true}
+                    backbuttonAction="/challenges"
+                    showNotificationComponent={true}
                     showOptionButton={[
                         {
                             title: "Share Challenge",

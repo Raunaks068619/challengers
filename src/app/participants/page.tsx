@@ -8,6 +8,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import BackButton from "@/components/BackButton";
 import PageHeader from "@/components/PageHeader";
+import { UserProfile } from "@/types";
 
 export default function ParticipantsPage() {
     const { user } = useAuth();
@@ -18,7 +19,7 @@ export default function ParticipantsPage() {
     return (
         <AuthGuard>
             <div className="min-h-screen bg-background text-foreground p-6 pb-20">
-                <PageHeader title="Participants" backbutton={true} className="mb-4" />
+                <PageHeader title="Participants" backbutton={true} backbuttonAction="/" className="mb-4" />
 
                 <main className="space-y-6">
                     {isLoading ? (
@@ -32,7 +33,7 @@ export default function ParticipantsPage() {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
-                            {participants.map((participant) => (
+                            {participants.map((participant: UserProfile) => (
                                 <div key={participant.id} className="bg-card rounded-2xl p-4 border border-border flex items-center gap-4">
                                     <Avatar
                                         src={participant.photo_url}

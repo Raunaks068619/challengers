@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
 import { generateAvatarAction, generateVisualDescriptionAction } from "@/app/actions/generateAvatar";
 import { cacheProfile } from "@/app/actions/profile";
 import { uploadImageAction } from "@/app/actions/upload";
+import { requestNotificationPermission } from "@/lib/notifications";
+import { arrayUnion } from "firebase/firestore";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export default function ProfilePage() {
     const { user, userProfile, logout } = useAuth();
@@ -76,11 +79,17 @@ export default function ProfilePage() {
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
+        const originalFile = e.target.files[0];
         const toastId = toast.loading("Uploading image...");
 
         try {
             if (!user) throw new Error("User not authenticated");
+
+            // Create a fresh File object to ensure compatibility with server actions
+            // We preserve the original extension to ensure correct handling
+            const fileExt = originalFile.name.split('.').pop() || 'jpg';
+            const fileName = `avatar.${fileExt}`;
+            const file = new File([originalFile], fileName, { type: originalFile.type });
 
             const formData = new FormData();
             formData.append('file', file);
@@ -226,21 +235,31 @@ export default function ProfilePage() {
                         </div>
                         <button
                             onClick={async () => {
-                                if (!("Notification" in window)) {
-                                    toast.error("This browser does not support notifications");
-                                    return;
-                                }
-                                const permission = await Notification.requestPermission();
-                                if (permission === "granted") {
-                                    toast.success("Notifications enabled!");
-                                } else {
-                                    toast.error("Permission denied");
+                                const token = await requestNotificationPermission();
+                                if (token && user) {
+                                    try {
+                                        await updateDoc(doc(db, "profiles", user.uid), {
+                                            fcm_tokens: arrayUnion(token)
+                                        });
+                                        toast.success("Notifications enabled!");
+                                    } catch (error) {
+                                        console.error("Error saving token:", error);
+                                        toast.error("Failed to enable notifications");
+                                    }
+                                } else if (!token) {
+                                    // Permission denied or error, usually handled by helper logs or browser
+                                    // But we can show a generic error if needed, though the helper handles some logs.
+                                    // If permission was denied, the browser won't prompt again easily.
                                 }
                             }}
                             className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
                         >
                             Enable Notifications
                         </button>
+
+                        <div className="w-full max-w-xs mt-4">
+                            <InstallPrompt />
+                        </div>
                     </div>
 
                     {/* Form Fields */}

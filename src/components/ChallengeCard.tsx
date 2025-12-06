@@ -1,7 +1,7 @@
 "use client";
 
 import { Challenge } from "@/types";
-import { Check, Clock, MapPin, Users } from "lucide-react";
+import { Check, Clock, MapPin, Users, X } from "lucide-react";
 import Link from "next/link";
 
 interface ChallengeCardProps {
@@ -67,40 +67,84 @@ export default function ChallengeCard({ challenge, logs, userId }: ChallengeCard
                         const dateStr = date.toISOString().split('T')[0];
                         const dayLabel = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][index];
 
-                        // Check status
+                        // Pre-calculate common conditions
                         const hasLog = logs.some(log => log.challenge_id === challenge.id && log.date === dateStr);
                         const isRestDay = challenge.rest_days?.includes(index);
                         const isToday = dateStr === todayStr;
                         const isFuture = date > new Date();
+                        const startDateStr = challenge.start_date || challenge.created_at?.split('T')[0];
+                        const isBeforeStart = startDateStr ? dateStr < startDateStr : false;
+
+                        // Check status from points_history
+                        const history = (challenge as any).participant?.points_history || [];
+                        const historyEntryIndex = history.findIndex((h: any) => h.date === dateStr);
+                        const historyEntry = historyEntryIndex !== -1 ? history[historyEntryIndex] : null;
+
+                        let status: 'completed' | 'missed' | 'pending' | 'future' | 'rest' | 'none' = 'none';
+
+                        if (isFuture) status = 'future';
+                        else if (isRestDay) status = 'rest';
+                        else if (historyEntry) {
+                            if (historyEntry.taskStatus) {
+                                status = historyEntry.taskStatus;
+                            } else {
+                                // Infer from points
+                                const prevEntry = historyEntryIndex > 0 ? history[historyEntryIndex - 1] : null;
+                                if (!prevEntry) {
+                                    status = 'completed'; // First entry (start)
+                                } else {
+                                    if (historyEntry.points < prevEntry.points) status = 'missed';
+                                    else status = 'completed';
+                                }
+                            }
+                        } else if (hasLog) {
+                            status = 'completed'; // Fallback to logs
+                        } else if (isToday) {
+                            status = 'pending';
+                        } else if (isBeforeStart) {
+                            status = 'future'; // Treat before start as future/dimmed
+                        } else {
+                            status = 'missed'; // Past, no history, no log, not rest -> Missed
+                        }
 
                         // Render Logic
-                        if (hasLog) {
+                        const baseClasses = "w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all";
+
+                        if (status === 'completed') {
                             return (
-                                <div key={index} className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                                <div key={index} className={`${baseClasses} bg-primary text-primary-foreground`}>
                                     <Check className="w-4 h-4" />
                                 </div>
                             );
                         }
 
-                        if (isToday) {
+                        if (status === 'missed') {
                             return (
-                                <div key={index} className="w-6 h-6 rounded-full border-2 border-dashed border-muted-foreground flex items-center justify-center text-foreground font-bold text-xs">
+                                <div key={index} className={`${baseClasses} bg-red-500/10 border border-red-500/20 text-red-500`}>
+                                    <X className="w-4 h-4" />
+                                </div>
+                            );
+                        }
+
+                        if (status === 'pending') {
+                            return (
+                                <div key={index} className={`${baseClasses} border-2 border-dashed border-muted-foreground text-foreground font-bold`}>
                                     {dayLabel}
                                 </div>
                             );
                         }
 
-                        if (isRestDay) {
+                        if (status === 'rest') {
                             return (
-                                <div key={index} className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                                <div key={index} className={`${baseClasses} bg-muted text-muted-foreground`}>
                                     {dayLabel}
                                 </div>
                             );
                         }
 
-                        // Default / Missed / Future
+                        // Future or Before Start
                         return (
-                            <div key={index} className={`w-8 h-8 rounded-full border border-border flex items-center justify-center text-xs ${isFuture ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                            <div key={index} className={`${baseClasses} border border-border text-muted-foreground/30`}>
                                 {dayLabel}
                             </div>
                         );
