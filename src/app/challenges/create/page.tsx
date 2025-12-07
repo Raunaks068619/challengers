@@ -8,6 +8,7 @@ import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import { ChevronLeft, Loader2, Sparkles, MapPin } from "lucide-react";
 import { toast } from "sonner";
+import LocationManager from "@/components/LocationManager";
 
 import { useCreateChallengeMutation } from "@/lib/features/api/apiSlice";
 import { supabase } from "@/lib/supabase";
@@ -22,8 +23,8 @@ export default function CreateChallengePage() {
 
     // Location State
     const [requiresLocation, setRequiresLocation] = useState(false);
-    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-
+    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null); // Legacy single location support
+    const [locations, setLocations] = useState<{ lat: number; lng: number; radius: number; address?: string }[]>([]);
 
     const [locationStatus, setLocationStatus] = useState<string>("");
 
@@ -102,8 +103,8 @@ export default function CreateChallengePage() {
     const handleCreate = async () => {
         if (!preview || !user) return;
 
-        if (requiresLocation && !location) {
-            toast.error("Please capture your location first");
+        if (requiresLocation && locations.length === 0 && !location) {
+            toast.error("Please add at least one location");
             return;
         }
 
@@ -130,9 +131,10 @@ export default function CreateChallengePage() {
                 time_window_start: requiresTimeWindow ? preview.timeWindowStart : null,
                 time_window_end: requiresTimeWindow ? preview.timeWindowEnd : null,
                 requires_location: requiresLocation,
-                location_lat: location?.lat || null,
-                location_lng: location?.lng || null,
-                location_radius: 100, // Default 100m
+                locations: requiresLocation ? locations : [],
+                location_lat: requiresLocation && locations.length > 0 ? locations[0].lat : (location?.lat || null),
+                location_lng: requiresLocation && locations.length > 0 ? locations[0].lng : (location?.lng || null),
+                location_radius: requiresLocation && locations.length > 0 ? locations[0].radius : 100,
                 banner_url: bannerUrl,
                 rest_days: restDays,
             };
@@ -344,41 +346,15 @@ export default function CreateChallengePage() {
                                 )}
                             </div>
 
-                            {/* Location Toggle */}
-                            <div className="pt-4 border-t border-border">
-                                <div className="flex items-center justify-between mb-4">
-                                    <label className="text-sm font-medium text-foreground">Require Location Check-in?</label>
-                                    <button
-                                        onClick={() => setRequiresLocation(!requiresLocation)}
-                                        className={`w-10 h-5 rounded-full transition-colors relative ${requiresLocation ? 'bg-primary' : 'bg-muted'}`}
-                                    >
-                                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${requiresLocation ? 'translate-x-5' : ''}`} />
-                                    </button>
-                                </div>
-
-                                {requiresLocation && (
-                                    <div className="bg-muted/50 rounded-xl p-4 border border-border">
-                                        <p className="text-xs text-muted-foreground mb-3">
-                                            Participants must be within 100m of this location to check in.
-                                        </p>
-                                        <button
-                                            onClick={captureLocation}
-                                            className="w-full py-2 bg-card border border-border rounded-lg text-xs font-medium hover:bg-muted flex items-center justify-center gap-2 text-foreground transition-colors"
-                                        >
-                                            <MapPin className="w-3 h-3" />
-                                            {location ? "Update Location" : "Capture Current Location"}
-                                        </button>
-                                        {locationStatus && (
-                                            <p className="text-center text-xs text-primary mt-2">{locationStatus}</p>
-                                        )}
-                                        {location && (
-                                            <p className="text-center text-[10px] text-muted-foreground mt-1">
-                                                Lat: {location.lat.toFixed(4)}, Lng: {location.lng.toFixed(4)}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            {/* Location Manager */}
+                            <LocationManager
+                                requiresLocation={requiresLocation}
+                                setRequiresLocation={setRequiresLocation}
+                                locations={locations}
+                                setLocations={setLocations}
+                                singleLocation={location}
+                                setSingleLocation={setLocation}
+                            />
                         </div>
 
                         <button

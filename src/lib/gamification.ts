@@ -4,6 +4,9 @@ import { toast } from "sonner";
 
 export const checkMissedLogs = async (userId: string) => {
     try {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
         // 1. Get yesterday's date
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -24,68 +27,86 @@ export const checkMissedLogs = async (userId: string) => {
             const p = pDoc.data();
             const challengeId = p.challenge_id;
 
-            // Check if user joined AFTER yesterday
-            const joinedDate = new Date(p.created_at).toISOString().split('T')[0];
-            if (joinedDate > yesterdayStr) continue;
-
-            // Check if challenge started AFTER yesterday
+            // Fetch Challenge Details
             const challengeRef = doc(db, "challenges", challengeId);
             const challengeSnap = await getDoc(challengeRef);
 
-            if (challengeSnap.exists()) {
-                const challenge = challengeSnap.data();
-                if (challenge.start_date) {
-                    const startDate = new Date(challenge.start_date).toISOString().split('T')[0];
-                    if (startDate > yesterdayStr) continue;
+            if (!challengeSnap.exists()) continue;
+            const challenge = challengeSnap.data();
+
+            // Dates to check: Yesterday AND Today (if time window passed)
+            const datesToCheck = [yesterdayStr];
+
+            // Check if we should check TODAY based on time window
+            if (challenge.time_window_end) {
+                const [endHour, endMinute] = challenge.time_window_end.split(':').map(Number);
+                const windowEnd = new Date();
+                windowEnd.setHours(endHour, endMinute, 0, 0);
+
+                if (now > windowEnd) {
+                    datesToCheck.push(todayStr);
                 }
             }
 
-            // 3. Check if a log exists for yesterday
-            const logsRef = collection(db, "daily_logs");
-            const logQuery = query(
-                logsRef,
-                where("challenge_id", "==", challengeId),
-                where("user_id", "==", userId),
-                where("date", "==", yesterdayStr)
-            );
-            const logSnap = await getDocs(logQuery);
+            for (const dateStr of datesToCheck) {
+                // Skip if user joined AFTER this date
+                const joinedDate = new Date(p.created_at).toISOString().split('T')[0];
+                if (joinedDate > dateStr) continue;
 
-            if (logSnap.empty) {
-                // MISSED!
-                console.log(`User ${userId} missed challenge ${challengeId} on ${yesterdayStr}`);
-
-                // A. Create 'missed' log
-                await addDoc(collection(db, "daily_logs"), {
-                    challenge_id: challengeId,
-                    user_id: userId,
-                    date: yesterdayStr,
-                    status: "missed",
-                    verified: false
-                });
-
-                // B. Deduct Points & Reset Streak
-                const penalty = 100;
-                const newPoints = (p.current_points || 0) - penalty;
-
-                await updateDoc(pDoc.ref, {
-                    current_points: newPoints,
-                    streak_current: 0,
-                    points_history: arrayUnion({ date: yesterdayStr, points: newPoints, taskStatus: 'missed' })
-                });
-
-                // C. Update Profile (Total Lost / Treat Pool)
-                const profileRef = doc(db, "profiles", userId);
-                const profileSnap = await getDoc(profileRef);
-
-                if (profileSnap.exists()) {
-                    const profile = profileSnap.data();
-                    await updateDoc(profileRef, {
-                        total_lost: (profile.total_lost || 0) + penalty,
-                        current_points: (profile.current_points || 0) - penalty
-                    });
+                // Skip if challenge started AFTER this date
+                if (challenge.start_date) {
+                    const startDate = new Date(challenge.start_date).toISOString().split('T')[0];
+                    if (startDate > dateStr) continue;
                 }
 
-                toast.error(`Missed task yesterday! -${penalty} pts`);
+                // Check if a log exists for this date
+                const logsRef = collection(db, "daily_logs");
+                const logQuery = query(
+                    logsRef,
+                    where("challenge_id", "==", challengeId),
+                    where("user_id", "==", userId),
+                    where("date", "==", dateStr)
+                );
+                const logSnap = await getDocs(logQuery);
+
+                if (logSnap.empty) {
+                    // MISSED!
+                    console.log(`User ${userId} missed challenge ${challengeId} on ${dateStr}`);
+
+                    // A. Create 'missed' log
+                    await addDoc(collection(db, "daily_logs"), {
+                        challenge_id: challengeId,
+                        user_id: userId,
+                        date: dateStr,
+                        status: "missed",
+                        verified: false,
+                        created_at: new Date().toISOString()
+                    });
+
+                    // B. Deduct Points & Reset Streak
+                    const penalty = 100;
+                    const newPoints = (p.current_points || 0) - penalty;
+
+                    await updateDoc(pDoc.ref, {
+                        current_points: newPoints,
+                        streak_current: 0,
+                        points_history: arrayUnion({ date: dateStr, points: newPoints, taskStatus: 'missed' })
+                    });
+
+                    // C. Update Profile (Total Lost / Treat Pool)
+                    const profileRef = doc(db, "profiles", userId);
+                    const profileSnap = await getDoc(profileRef);
+
+                    if (profileSnap.exists()) {
+                        const profile = profileSnap.data();
+                        await updateDoc(profileRef, {
+                            total_lost: (profile.total_lost || 0) + penalty,
+                            current_points: (profile.current_points || 0) - penalty
+                        });
+                    }
+
+                    toast.error(`Missed task on ${dateStr === todayStr ? 'today' : 'yesterday'}! -${penalty} pts`);
+                }
             }
         }
     } catch (error) {

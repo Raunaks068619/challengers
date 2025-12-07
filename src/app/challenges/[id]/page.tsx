@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import { Challenge, ChallengeParticipant } from "@/types";
-import { ChevronLeft, Share2, MapPin, Trophy, Flame, Camera } from "lucide-react";
+import { ChevronLeft, Share2, MapPin, Trophy, Flame, Camera, LogOut, Edit } from "lucide-react";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import PageHeader from "@/components/PageHeader";
@@ -117,15 +117,22 @@ export default function ChallengeDetailsPage() {
                     title={challenge.title}
                     backbutton={true}
                     backbuttonAction="/challenges"
-                    showNotificationComponent={true}
+                    // showNotificationComponent={true}
                     showOptionButton={[
                         {
                             title: "Share Challenge",
+                            icon: <Share2 className="w-4 h-4" />,
                             runFunction: () => setShowShareModal(true)
                         },
                         ...(participantData ? [{
                             title: "Leave Challenge",
+                            icon: <LogOut className="w-4 h-4" />,
                             runFunction: handleLeaveClick
+                        }] : []),
+                        ...(challenge && user && challenge.creator_id === user.uid ? [{
+                            title: "Edit Challenge",
+                            icon: <Edit className="w-4 h-4" />,
+                            runFunction: () => router.push(`/challenges/${challenge.id}/edit`)
                         }] : [])
                     ]}
                     className="mb-6"

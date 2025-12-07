@@ -15,6 +15,7 @@ export interface Challenge {
     location_lat?: number | null;
     location_lng?: number | null;
     location_radius?: number; // in meters
+    locations?: { lat: number; lng: number; radius: number; address?: string }[]; // Multiple locations support
     join_code?: string;
     banner_url?: string | null;
     rest_days?: number[]; // 0=Sunday, 1=Monday, etc.

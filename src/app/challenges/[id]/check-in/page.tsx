@@ -91,9 +91,36 @@ export default function CheckInPage() {
                 const currentLng = position.coords.longitude;
                 setLocation({ lat: currentLat, lng: currentLng });
 
-                if (challenge?.requires_location && challenge.location_lat && challenge.location_lng) {
-                    const dist = calculateDistance(currentLat, currentLng, challenge.location_lat, challenge.location_lng);
-                    setDistance(dist);
+                if (challenge?.requires_location) {
+                    let minDist = Infinity;
+                    let validRadius = 100;
+
+                    // Check legacy single location
+                    if (challenge.location_lat && challenge.location_lng) {
+                        const dist = calculateDistance(currentLat, currentLng, challenge.location_lat, challenge.location_lng);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            validRadius = challenge.location_radius || 100;
+                        }
+                    }
+
+                    // Check new multiple locations array
+                    if (challenge.locations && challenge.locations.length > 0) {
+                        challenge.locations.forEach(loc => {
+                            const dist = calculateDistance(currentLat, currentLng, loc.lat, loc.lng);
+                            if (dist < minDist) {
+                                minDist = dist;
+                                validRadius = loc.radius || 100;
+                            }
+                        });
+                    }
+
+                    if (minDist !== Infinity) {
+                        setDistance(minDist);
+                        // Store the radius of the closest location for validation
+                        // We can store it in a ref or state if needed, but for now we'll just use the logic in handleCheckIn
+                        // Actually, let's update the distance state to reflect the closest valid location
+                    }
                 }
                 toast.success("Location verified!", { id: toastId });
             },
@@ -208,8 +235,33 @@ export default function CheckInPage() {
                 toast.error("Please verify your location first.");
                 return;
             }
-            if (distance > (challenge.location_radius || 100)) {
-                toast.error(`You are too far! (${Math.round(distance)}m away). Must be within ${challenge.location_radius}m.`);
+
+            // Determine the applicable radius based on the closest location
+            let applicableRadius = challenge.location_radius || 100;
+
+            // Re-calculate to find which location gave this distance (or just iterate again to be safe)
+            // Ideally we should have stored the applicable radius in state, but let's re-check for safety
+            if (challenge.locations && challenge.locations.length > 0) {
+                let minDist = Infinity;
+                challenge.locations.forEach(loc => {
+                    const dist = calculateDistance(location.lat, location.lng, loc.lat, loc.lng);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        applicableRadius = loc.radius || 100;
+                    }
+                });
+
+                // Also check legacy
+                if (challenge.location_lat && challenge.location_lng) {
+                    const dist = calculateDistance(location.lat, location.lng, challenge.location_lat, challenge.location_lng);
+                    if (dist < minDist) {
+                        applicableRadius = challenge.location_radius || 100;
+                    }
+                }
+            }
+
+            if (distance > applicableRadius) {
+                toast.error(`You are too far! (${Math.round(distance)}m away). Must be within ${applicableRadius}m.`);
                 return;
             }
         }
@@ -366,7 +418,7 @@ export default function CheckInPage() {
                                             <p className="text-xs text-green-500">Location captured</p>
                                             {distance !== null && (
                                                 <p className={`text-[10px] mt-1 ${distance <= (challenge.location_radius || 100) ? 'text-green-500' : 'text-destructive'}`}>
-                                                    Distance: {Math.round(distance)}m (Max: {challenge.location_radius || 100}m)
+                                                    Distance: {Math.round(distance)}m
                                                 </p>
                                             )}
                                         </div>
@@ -397,7 +449,7 @@ export default function CheckInPage() {
 
                     <button
                         onClick={handleCheckIn}
-                        disabled={submitting || (challenge.requires_location && (!location || (distance !== null && distance > (challenge.location_radius || 100)))) || !imgSrc}
+                        disabled={submitting || (challenge.requires_location && (!location || (distance !== null && distance > 5000))) || !imgSrc} // Relaxed disabled check, real validation in handler
                         className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all"
                     >
                         {submitting ? "Verifying..." : "Complete Check-in"}

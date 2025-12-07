@@ -279,6 +279,18 @@ export const apiSlice = createApi({
             },
             invalidatesTags: ['Challenge'],
         }),
+        updateChallenge: builder.mutation<null, { challengeId: string; updates: Partial<Challenge> }>({
+            queryFn: async ({ challengeId, updates }) => {
+                try {
+                    const docRef = doc(db, "challenges", challengeId);
+                    await updateDoc(docRef, updates);
+                    return { data: null };
+                } catch (e: any) {
+                    return { error: e.message };
+                }
+            },
+            invalidatesTags: (result, error, arg) => [{ type: 'Challenge', id: arg.challengeId }],
+        }),
         performCheckIn: builder.mutation<null, {
             challengeId: string;
             userId: string;
@@ -587,5 +599,6 @@ export const {
     useLeaveChallengeMutation,
     useGetUserWeeklyLogsQuery,
     useGetAllParticipantsQuery,
-    useGetChallengePointsHistoryQuery
+    useGetChallengePointsHistoryQuery,
+    useUpdateChallengeMutation
 } = apiSlice;

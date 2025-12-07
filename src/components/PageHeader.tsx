@@ -11,6 +11,7 @@ interface OptionItem {
     title: string;
     navigateTo?: string;
     runFunction?: () => void;
+    icon?: React.ReactNode;
 }
 
 interface PageHeaderProps {
@@ -104,9 +105,10 @@ export default function PageHeader({
                                                 }
                                                 setShowOptions(false);
                                             }}
-                                            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-muted transition-colors text-foreground border-b border-border last:border-0"
+                                            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-muted transition-colors text-foreground border-b border-border last:border-0 flex items-center gap-3"
                                         >
-                                            {option.title}
+                                            {option.icon && <span className="text-muted-foreground">{option.icon}</span>}
+                                            <span>{option.title}</span>
                                         </button>
                                     ))}
                                 </div>
