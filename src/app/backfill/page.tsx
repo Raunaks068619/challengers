@@ -90,9 +90,10 @@ export default function BackfillPage() {
 
             await batch.commit();
             setStatus("Success! Reset points and backfilled history.");
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            setStatus("Error: " + e.message);
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            setStatus("Error: " + errorMessage);
         }
     };
 

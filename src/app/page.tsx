@@ -8,6 +8,7 @@ import TaskProgressCard from "@/components/TaskProgressCard";
 import ParticipantsCard from "@/components/ParticipantsCard";
 import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useGetChallengePointsHistoryQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
 import { checkMissedLogs } from "@/lib/gamification";
+import { Challenge } from "@/types";
 
 import { Plus, ArrowRight, Users } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
@@ -17,7 +18,6 @@ import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
   const { user } = useAuth();
-
 
   // RTK Query Hooks
   const { data: userProfile, isLoading: profileLoading } = useGetProfileQuery(user?.uid || '', {
@@ -36,8 +36,6 @@ export default function Dashboard() {
     skip: !user?.uid,
   });
 
-
-
   // Get the first active challenge ID for the chart
   const firstChallengeId = activeChallenges.length > 0 ? activeChallenges[0].id : null;
 
@@ -52,7 +50,7 @@ export default function Dashboard() {
   const dayOfWeek = today.getDay(); // 0-6
   const todayDateString = today.toISOString().split('T')[0];
 
-  const totalDailyTasks = activeChallenges.reduce((acc: number, challenge: any) => {
+  const totalDailyTasks = activeChallenges.reduce((acc: number, challenge: Challenge) => {
     const restDays = challenge.rest_days || [];
     // If today is a rest day, don't count it
     if (restDays.includes(dayOfWeek)) {
@@ -61,9 +59,7 @@ export default function Dashboard() {
     return acc + 1;
   }, 0);
 
-  const completedDailyTasks = weeklyLogs.filter((log: any) => log.date === todayDateString).length;
-
-
+  const completedDailyTasks = weeklyLogs.filter((log: { date: string }) => log.date === todayDateString).length;
 
   const [joinByCode, { isLoading: joining }] = useJoinChallengeByCodeMutation();
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -82,9 +78,10 @@ export default function Dashboard() {
       setShowJoinModal(false);
       setJoinCode("");
       router.push(`/challenges/${result}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Join error:", error);
-      toast.error(error.data?.error || "Failed to join challenge. Check the code.");
+      const err = error as { data?: { error?: string } };
+      toast.error(err.data?.error || "Failed to join challenge. Check the code.");
     }
   };
 

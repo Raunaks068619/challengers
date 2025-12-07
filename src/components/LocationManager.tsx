@@ -21,7 +21,12 @@ interface LocationManagerProps {
     setSingleLocation?: (loc: { lat: number; lng: number } | null) => void;
 }
 
-import MapPicker from "./MapPicker";
+import dynamic from "next/dynamic";
+
+const MapPicker = dynamic(() => import("./MapPicker"), {
+    ssr: false,
+    loading: () => null
+});
 
 export default function LocationManager({
     requiresLocation,
