@@ -19,7 +19,7 @@ import {
     arrayUnion
 } from 'firebase/firestore';
 import { Challenge, UserProfile, ChallengeParticipant } from '@/types';
-import { uploadImageAction } from '@/app/actions/upload';
+
 
 export const apiSlice = createApi({
     reducerPath: 'api',
@@ -164,7 +164,12 @@ export const apiSlice = createApi({
                             const profile = profileSnap.data();
                             await updateDoc(profileRef, {
                                 current_points: (profile.current_points || 0) + 500,
-                                total_earned: (profile.total_earned || 0) + 500 // Assuming initial points count as earned? Or just current? User said "stacked in your total current points". I'll update current. User said "Remove Total earned points stats... its o no use", so maybe I don't need to update total_earned, but for consistency I might. Let's just update current_points as requested.
+                                total_earned: (profile.total_earned || 0) + 500,
+                                points_history: arrayUnion({
+                                    date: new Date().toISOString().split('T')[0],
+                                    points: (profile.current_points || 0) + 500,
+                                    taskStatus: 'joined'
+                                })
                             });
                         }
                     }
@@ -215,7 +220,12 @@ export const apiSlice = createApi({
                         if (profileSnap.exists()) {
                             const profile = profileSnap.data();
                             await updateDoc(profileRef, {
-                                current_points: (profile.current_points || 0) + 500
+                                current_points: (profile.current_points || 0) + 500,
+                                points_history: arrayUnion({
+                                    date: new Date().toISOString().split('T')[0],
+                                    points: (profile.current_points || 0) + 500,
+                                    taskStatus: 'joined'
+                                })
                             });
                         }
                     }
@@ -272,6 +282,21 @@ export const apiSlice = createApi({
                         points_history: [{ date: new Date().toISOString().split('T')[0], points: 500, taskStatus: 'completed' }]
                     });
 
+                    // 3. Update Global Profile Points
+                    const profileRef = doc(db, "profiles", userId);
+                    const profileSnap = await getDoc(profileRef);
+                    if (profileSnap.exists()) {
+                        const profile = profileSnap.data();
+                        await updateDoc(profileRef, {
+                            current_points: (profile.current_points || 0) + 500,
+                            points_history: arrayUnion({
+                                date: new Date().toISOString().split('T')[0],
+                                points: (profile.current_points || 0) + 500,
+                                taskStatus: 'created'
+                            })
+                        });
+                    }
+
                     return { data: docRef.id };
                 } catch (e: any) {
                     return { error: e.message };
@@ -304,22 +329,21 @@ export const apiSlice = createApi({
                     const blob = await (await fetch(imgSrc)).blob();
                     const file = new File([blob], "checkin.jpg", { type: "image/jpeg" });
 
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('userId', userId);
-                    formData.append('bucket', 'challengers');
-                    formData.append('path', `checkins/${challengeId}/${userId}`);
+                    const fileName = `checkins/${challengeId}/${userId}-${Date.now()}.jpg`;
+                    const { error: uploadError } = await supabase.storage
+                        .from('challengers')
+                        .upload(fileName, file, {
+                            contentType: 'image/jpeg',
+                            upsert: true
+                        });
 
-                    // We need to dynamically import the action or use it if available in scope.
-                    // Since this is a client-side file (apiSlice runs in client), we can import the server action.
-                    // However, apiSlice is a .ts file, not a component.
-                    // Server actions can be imported in client modules.
+                    if (uploadError) throw uploadError;
 
-                    // NOTE: We need to make sure uploadImageAction is imported at the top of the file.
-                    // For now, I will assume it is imported. I will add the import in a separate step or include it here if possible.
-                    // But replace_file_content works on chunks. I'll use the imported action.
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('challengers')
+                        .getPublicUrl(fileName);
 
-                    const downloadURL = await uploadImageAction(formData);
+                    const downloadURL = publicUrl;
 
                     // 2. Create Log (FIREBASE)
                     const today = new Date().toISOString().split('T')[0];
@@ -375,7 +399,12 @@ export const apiSlice = createApi({
                                 const profile = profileSnap.data();
                                 await updateDoc(profileRef, {
                                     total_earned: (profile.total_earned || 0) + pointsToAdd,
-                                    current_points: (profile.current_points || 0) + pointsToAdd
+                                    current_points: (profile.current_points || 0) + pointsToAdd,
+                                    points_history: arrayUnion({
+                                        date: new Date().toISOString().split('T')[0],
+                                        points: (profile.current_points || 0) + pointsToAdd,
+                                        taskStatus: 'completed'
+                                    })
                                 });
                             }
                         }

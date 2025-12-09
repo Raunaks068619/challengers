@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 import { generateAvatarAction, generateVisualDescriptionAction } from "@/app/actions/generateAvatar";
 import { cacheProfile } from "@/app/actions/profile";
-import { uploadImageAction } from "@/app/actions/upload";
+
 import { requestNotificationPermission } from "@/lib/notifications";
 import { arrayUnion } from "firebase/firestore";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -79,25 +79,26 @@ export default function ProfilePage() {
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
-        const originalFile = e.target.files[0];
+        const file = e.target.files[0];
         const toastId = toast.loading("Uploading image...");
 
         try {
             if (!user) throw new Error("User not authenticated");
 
-            // Create a fresh File object to ensure compatibility with server actions
-            // We preserve the original extension to ensure correct handling
-            const fileExt = originalFile.name.split('.').pop() || 'jpg';
-            const fileName = `avatar.${fileExt}`;
-            const file = new File([originalFile], fileName, { type: originalFile.type });
+            const fileExt = file.name.split('.').pop();
+            const fileName = `avatars/${user.uid}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('userId', user.uid);
-            formData.append('bucket', 'challengers');
-            formData.append('path', 'avatars');
+            const { error: uploadError } = await supabase.storage
+                .from('challengers')
+                .upload(fileName, file, {
+                    upsert: true
+                });
 
-            const publicUrl = await uploadImageAction(formData);
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('challengers')
+                .getPublicUrl(fileName);
 
             setFormData(prev => ({ ...prev, photo_url: publicUrl }));
             toast.success("Image uploaded!", { id: toastId });
@@ -135,13 +136,20 @@ export default function ProfilePage() {
             // Create a File from Blob
             const file = new File([blob], "avatar.png", { type: "image/png" });
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('userId', user.uid);
-            formData.append('bucket', 'challengers');
-            formData.append('path', 'avatars');
+            const fileName = `avatars/${user.uid}-${Math.random().toString(36).substring(7)}.png`;
 
-            const publicUrl = await uploadImageAction(formData);
+            const { error: uploadError } = await supabase.storage
+                .from('challengers')
+                .upload(fileName, file, {
+                    upsert: true,
+                    contentType: 'image/png'
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('challengers')
+                .getPublicUrl(fileName);
 
             // Update Form Data
             setFormData(prev => ({ ...prev, photo_url: publicUrl }));

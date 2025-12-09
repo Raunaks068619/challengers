@@ -3,7 +3,7 @@
 import AuthGuard from "@/components/AuthGuard";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import TaskProgressCard from "@/components/TaskProgressCard";
 import ParticipantsCard from "@/components/ParticipantsCard";
 import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useGetChallengePointsHistoryQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
@@ -37,11 +37,54 @@ export default function Dashboard() {
   });
 
   // Get the first active challenge ID for the chart
-  const firstChallengeId = activeChallenges.length > 0 ? activeChallenges[0].id : null;
+  const firstChallengeId = activeChallenges.length > 0 ? activeChallenges[0].id : "";
 
-  const { data: historyData = [] } = useGetChallengePointsHistoryQuery(firstChallengeId || '', {
+  const { data: challengeHistory = [] } = useGetChallengePointsHistoryQuery(firstChallengeId, {
     skip: !firstChallengeId
   });
+
+  // Global Points History (Fallback)
+  const globalHistoryData = useMemo(() => {
+    if (!userProfile?.points_history || userProfile.points_history.length === 0) {
+      const today = new Date();
+      return [{
+        name: today.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: today.toISOString().split('T')[0],
+        [userProfile?.display_name || 'User']: userProfile?.current_points || 0
+      }];
+    }
+
+    const history = [...userProfile.points_history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const startDate = new Date(history[0].date);
+    const endDate = new Date();
+    const finalHistory: any[] = [];
+    let lastPoints = history[0].points;
+
+    // Create map for quick lookup
+    const historyMap = new Map(history.map(h => [h.date, h.points]));
+
+    const d = new Date(startDate);
+    while (d <= endDate) {
+      const dateStr = d.toISOString().split('T')[0];
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+
+      if (historyMap.has(dateStr)) {
+        lastPoints = historyMap.get(dateStr)!;
+      }
+
+      finalHistory.push({
+        name: dayName,
+        date: dateStr,
+        [userProfile?.display_name || 'User']: lastPoints
+      });
+
+      d.setDate(d.getDate() + 1);
+    }
+    return finalHistory;
+  }, [userProfile]);
+
+  // Use challenge history if available (for comparison), otherwise global
+  const historyData = (activeChallenges.length > 0 && challengeHistory.length > 0) ? challengeHistory : globalHistoryData;
 
   // Calculate Task Progress (Daily)
   // Denominator: Active Challenges that are active today (not a rest day)
@@ -49,6 +92,30 @@ export default function Dashboard() {
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0-6
   const todayDateString = today.toISOString().split('T')[0];
+
+  // Numerator: Logs for today matching active challenges
+  const todayStr = today.toISOString().split('T')[0];
+
+  const activeChallengesToday = activeChallenges.filter((challenge: Challenge) => {
+    const restDays = challenge.rest_days || [];
+    return !restDays.includes(dayOfWeek);
+  });
+
+  const completedTasksToday = weeklyLogs.filter((log: { date: string, status: string, challenge_id: string }) => {
+    const isDateMatch = log.date === todayStr;
+    const isCompleted = log.status === 'completed';
+    const isActiveChallenge = activeChallengesToday.some(c => c.id === log.challenge_id);
+
+    if (isDateMatch && isCompleted) {
+      console.log("Found completed log for today:", log, "Is Active Challenge:", isActiveChallenge);
+    }
+
+    return isDateMatch && isCompleted && isActiveChallenge;
+  }).length;
+
+  const totalTasksToday = activeChallengesToday.length;
+
+  console.log("DEBUG RESULT:", { completedTasksToday, totalTasksToday });
 
   const totalDailyTasks = activeChallenges.reduce((acc: number, challenge: Challenge) => {
     const restDays = challenge.rest_days || [];
@@ -180,41 +247,43 @@ export default function Dashboard() {
         </main>
 
         {/* Join Modal */}
-        {showJoinModal && (
-          <div className="fixed inset-0 bg-background/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-            <div className="bg-card rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
-              <h3 className="text-lg font-bold mb-4 text-foreground">Join Challenge</h3>
-              <p className="text-muted-foreground text-sm mb-4">Enter the 6-character code shared by your friend.</p>
+        {
+          showJoinModal && (
+            <div className="fixed inset-0 bg-background/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+              <div className="bg-card rounded-2xl p-6 w-full max-w-sm border border-border shadow-xl">
+                <h3 className="text-lg font-bold mb-4 text-foreground">Join Challenge</h3>
+                <p className="text-muted-foreground text-sm mb-4">Enter the 6-character code shared by your friend.</p>
 
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="E.G. A1B2C3"
-                className="w-full bg-background border border-border rounded-xl p-3 text-center text-2xl font-mono tracking-widest mb-6 focus:outline-none focus:ring-2 focus:ring-primary uppercase placeholder:text-muted-foreground/50 text-foreground"
-                maxLength={6}
-              />
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="E.G. A1B2C3"
+                  className="w-full bg-background border border-border rounded-xl p-3 text-center text-2xl font-mono tracking-widest mb-6 focus:outline-none focus:ring-2 focus:ring-primary uppercase placeholder:text-muted-foreground/50 text-foreground"
+                  maxLength={6}
+                />
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowJoinModal(false)}
-                  className="flex-1 py-3 bg-muted rounded-xl font-medium hover:bg-muted/80 text-foreground transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleJoinByCode}
-                  disabled={joining || joinCode.length < 6}
-                  className="flex-1 py-3 bg-primary rounded-xl font-medium hover:opacity-90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                >
-                  {joining ? "Joining..." : "Join"}
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowJoinModal(false)}
+                    className="flex-1 py-3 bg-muted rounded-xl font-medium hover:bg-muted/80 text-foreground transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleJoinByCode}
+                    disabled={joining || joinCode.length < 6}
+                    className="flex-1 py-3 bg-primary rounded-xl font-medium hover:opacity-90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  >
+                    {joining ? "Joining..." : "Join"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        }
 
-      </div>
-    </AuthGuard>
+      </div >
+    </AuthGuard >
   );
 }

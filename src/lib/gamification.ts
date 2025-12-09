@@ -101,7 +101,12 @@ export const checkMissedLogs = async (userId: string) => {
                         const profile = profileSnap.data();
                         await updateDoc(profileRef, {
                             total_lost: (profile.total_lost || 0) + penalty,
-                            current_points: (profile.current_points || 0) - penalty
+                            current_points: (profile.current_points || 0) - penalty,
+                            points_history: arrayUnion({
+                                date: dateStr,
+                                points: (profile.current_points || 0) - penalty,
+                                taskStatus: 'missed'
+                            })
                         });
                     }
 

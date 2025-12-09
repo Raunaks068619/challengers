@@ -34,6 +34,8 @@ export default function ProgressChart({ data }: ProgressChartProps) {
 
     // Extract participant names from the first data point
     const keys = Object.keys(data[0]).filter(k => k !== 'name' && k !== 'date');
+    console.log({keys});
+    
 
     // Generate colors (simple rotation)
     const colors = ['#818cf8', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
