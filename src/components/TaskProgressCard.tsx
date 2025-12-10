@@ -1,4 +1,6 @@
 import React from "react";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TaskProgressCardProps {
@@ -14,7 +16,7 @@ export default function TaskProgressCard({ completed, total, className }: TaskPr
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
     return (
-        <div className={cn("bg-card rounded-2xl p-4 border border-border shadow-sm flex items-center gap-5", className)}>
+        <Link href="/completed-goals" className={cn("bg-card rounded-2xl p-4 border border-border shadow-sm flex items-center gap-5 hover:border-primary/50 transition-colors cursor-pointer", className)}>
             <div className="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
                 {/* Background Circle */}
                 <svg className="w-full h-full transform -rotate-90">
@@ -45,11 +47,16 @@ export default function TaskProgressCard({ completed, total, className }: TaskPr
             </div>
 
             <div className="flex-1">
-                <h3 className="text-base font-bold text-foreground leading-tight mb-1">Your daily goals almost done!</h3>
+                <h3 className="text-base font-bold text-foreground leading-tight mb-1">
+                    {percentage === 100 ? "All goals completed 🎉" : "Your daily goals almost done!"}
+                </h3>
                 <p className="text-sm text-muted-foreground">
                     <span className="text-primary font-bold">{completed}</span> of {total} completed
                 </p>
             </div>
-        </div>
+
+            <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+        </Link>
     );
 }
+

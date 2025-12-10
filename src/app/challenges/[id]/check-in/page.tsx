@@ -78,6 +78,10 @@ export default function CheckInPage() {
 
     const loading = challengeLoading || checkingLog;
 
+    // Check if challenge has started
+    const today = new Date().toLocaleDateString('en-CA');
+    const hasStarted = challenge ? today >= challenge.start_date : true;
+
     const getLocation = () => {
         setLocationError("");
         if (!navigator.geolocation) {
@@ -320,6 +324,29 @@ export default function CheckInPage() {
         );
     }
 
+    // Challenge hasn't started yet
+    if (!hasStarted && challenge) {
+        return (
+            <AuthGuard>
+                <div className="min-h-screen bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
+                    <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mb-4">
+                        <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h1 className="text-xl font-bold mb-2">Challenge Hasn't Started</h1>
+                    <p className="text-muted-foreground mb-2 text-sm">This challenge starts on:</p>
+                    <p className="text-primary font-bold text-lg mb-6">
+                        {new Date(challenge.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                    <Link href={`/challenges/${id}`} className="px-6 py-3 bg-muted rounded-xl font-medium hover:bg-muted/80 text-foreground transition-colors">
+                        Back to Challenge
+                    </Link>
+                </div>
+            </AuthGuard>
+        );
+    }
+
     if (status === "success") {
         return (
             <AuthGuard>
@@ -449,10 +476,10 @@ export default function CheckInPage() {
 
                     <button
                         onClick={handleCheckIn}
-                        disabled={submitting || (challenge.requires_location && (!location || (distance !== null && distance > 5000))) || !imgSrc} // Relaxed disabled check, real validation in handler
+                        disabled={submitting || !hasStarted || (challenge.requires_location && (!location || (distance !== null && distance > 5000))) || !imgSrc}
                         className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all"
                     >
-                        {submitting ? "Verifying..." : "Complete Check-in"}
+                        {submitting ? "Verifying..." : !hasStarted ? "Challenge Not Started" : "Complete Check-in"}
                     </button>
                 </div>
             </div >

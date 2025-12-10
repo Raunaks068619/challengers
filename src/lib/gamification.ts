@@ -5,12 +5,12 @@ import { toast } from "sonner";
 export const checkMissedLogs = async (userId: string) => {
     try {
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
+        const todayStr = now.toLocaleDateString('en-CA');
 
         // 1. Get yesterday's date
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = yesterday.toLocaleDateString('en-CA');
 
         // 2. Get all active challenges for the user
         const participantsRef = collection(db, "challenge_participants");
@@ -50,12 +50,12 @@ export const checkMissedLogs = async (userId: string) => {
 
             for (const dateStr of datesToCheck) {
                 // Skip if user joined AFTER this date
-                const joinedDate = new Date(p.created_at).toISOString().split('T')[0];
+                const joinedDate = new Date(p.created_at).toLocaleDateString('en-CA');
                 if (joinedDate > dateStr) continue;
 
                 // Skip if challenge started AFTER this date
                 if (challenge.start_date) {
-                    const startDate = new Date(challenge.start_date).toISOString().split('T')[0];
+                    const startDate = new Date(challenge.start_date).toLocaleDateString('en-CA');
                     if (startDate > dateStr) continue;
                 }
 

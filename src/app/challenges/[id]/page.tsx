@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Challenge, ChallengeParticipant } from "@/types";
 import { ChevronLeft, Share2, MapPin, Trophy, Flame, Camera, LogOut, Edit } from "lucide-react";
 import { toast } from "sonner";
-import BackButton from "@/components/BackButton";
+import BackButton from "@/common/BackButton";
 import PageHeader from "@/components/PageHeader";
 
 import { useGetChallengeQuery, useGetParticipantDataQuery, useJoinChallengeMutation, useGetUserChallengeLogsQuery, useLeaveChallengeMutation } from "@/lib/features/api/apiSlice";

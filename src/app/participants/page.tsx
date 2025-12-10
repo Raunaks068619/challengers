@@ -6,7 +6,7 @@ import { useGetAllParticipantsQuery } from "@/lib/features/api/apiSlice";
 import { ChevronLeft, Trophy } from "lucide-react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
-import BackButton from "@/components/BackButton";
+import BackButton from "@/common/BackButton";
 import PageHeader from "@/components/PageHeader";
 import { UserProfile } from "@/types";
 

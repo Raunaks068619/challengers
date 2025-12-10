@@ -5,7 +5,8 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
 import StoreProvider from "./StoreProvider";
 import { Suspense } from "react";
-import BottomNav from "@/components/BottomNav";
+import BottomNav from "@/common/BottomNav";
+import ComponentVisibilityGuard from "@/common/ComponentVisibilityGuard";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const poppins = Poppins({
@@ -50,7 +51,9 @@ export default function RootLayout({
                 <div className="pb-20">
                   {children}
                 </div>
-                <BottomNav />
+                <ComponentVisibilityGuard allowedRoutes={['/', '/profile', '/social', '/challenges']}>
+                  <BottomNav />
+                </ComponentVisibilityGuard>
                 <Toaster position="top-center" />
               </ThemeProvider>
             </AuthProvider>

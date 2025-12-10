@@ -154,7 +154,7 @@ export const apiSlice = createApi({
                             current_points: 500,
                             is_active: true,
                             created_at: new Date().toISOString(),
-                            points_history: [{ date: new Date().toISOString().split('T')[0], points: 500 }]
+                            points_history: [{ date: new Date().toLocaleDateString('en-CA'), points: 500 }]
                         });
 
                         // Update Global Profile Points
@@ -166,7 +166,7 @@ export const apiSlice = createApi({
                                 current_points: (profile.current_points || 0) + 500,
                                 total_earned: (profile.total_earned || 0) + 500,
                                 points_history: arrayUnion({
-                                    date: new Date().toISOString().split('T')[0],
+                                    date: new Date().toLocaleDateString('en-CA'),
                                     points: (profile.current_points || 0) + 500,
                                     taskStatus: 'joined'
                                 })
@@ -211,7 +211,7 @@ export const apiSlice = createApi({
                             current_points: 500,
                             is_active: true,
                             created_at: new Date().toISOString(),
-                            points_history: [{ date: new Date().toISOString().split('T')[0], points: 500 }]
+                            points_history: [{ date: new Date().toLocaleDateString('en-CA'), points: 500 }]
                         });
 
                         // Update Global Profile Points
@@ -222,7 +222,7 @@ export const apiSlice = createApi({
                             await updateDoc(profileRef, {
                                 current_points: (profile.current_points || 0) + 500,
                                 points_history: arrayUnion({
-                                    date: new Date().toISOString().split('T')[0],
+                                    date: new Date().toLocaleDateString('en-CA'),
                                     points: (profile.current_points || 0) + 500,
                                     taskStatus: 'joined'
                                 })
@@ -279,7 +279,7 @@ export const apiSlice = createApi({
                         current_points: 500,
                         is_active: true,
                         created_at: new Date().toISOString(),
-                        points_history: [{ date: new Date().toISOString().split('T')[0], points: 500, taskStatus: 'completed' }]
+                        points_history: [{ date: new Date().toLocaleDateString('en-CA'), points: 500, taskStatus: 'completed' }]
                     });
 
                     // 3. Update Global Profile Points
@@ -290,7 +290,7 @@ export const apiSlice = createApi({
                         await updateDoc(profileRef, {
                             current_points: (profile.current_points || 0) + 500,
                             points_history: arrayUnion({
-                                date: new Date().toISOString().split('T')[0],
+                                date: new Date().toLocaleDateString('en-CA'),
                                 points: (profile.current_points || 0) + 500,
                                 taskStatus: 'created'
                             })
@@ -325,6 +325,15 @@ export const apiSlice = createApi({
         }>({
             queryFn: async ({ challengeId, userId, imgSrc, location, note }) => {
                 try {
+                    // 0. Validate challenge has started
+                    const challengeDoc = await getDoc(doc(db, "challenges", challengeId));
+                    if (!challengeDoc.exists()) throw new Error("Challenge not found");
+                    const challengeData = challengeDoc.data();
+                    const today = new Date().toLocaleDateString('en-CA');
+                    if (today < challengeData.start_date) {
+                        throw new Error("Challenge hasn't started yet");
+                    }
+
                     // 1. Upload Image (USE SERVER ACTION)
                     const blob = await (await fetch(imgSrc)).blob();
                     const file = new File([blob], "checkin.jpg", { type: "image/jpeg" });
@@ -346,7 +355,6 @@ export const apiSlice = createApi({
                     const downloadURL = publicUrl;
 
                     // 2. Create Log (FIREBASE)
-                    const today = new Date().toISOString().split('T')[0];
                     await addDoc(collection(db, "daily_logs"), {
                         challenge_id: challengeId,
                         user_id: userId,
@@ -359,6 +367,7 @@ export const apiSlice = createApi({
                         verified: true,
                         note: note || "",
                     });
+
 
                     // 3. Update Streak & Points
                     const q = query(
@@ -385,7 +394,7 @@ export const apiSlice = createApi({
                             streak_best: newBestStreak,
                             current_points: (participant.current_points || 0) + pointsToAdd,
                             points_history: arrayUnion({
-                                date: new Date().toISOString().split('T')[0],
+                                date: new Date().toLocaleDateString('en-CA'),
                                 points: (participant.current_points || 0) + pointsToAdd,
                                 taskStatus: 'completed'
                             })
@@ -401,7 +410,7 @@ export const apiSlice = createApi({
                                     total_earned: (profile.total_earned || 0) + pointsToAdd,
                                     current_points: (profile.current_points || 0) + pointsToAdd,
                                     points_history: arrayUnion({
-                                        date: new Date().toISOString().split('T')[0],
+                                        date: new Date().toLocaleDateString('en-CA'),
                                         points: (profile.current_points || 0) + pointsToAdd,
                                         taskStatus: 'completed'
                                     })
@@ -444,7 +453,7 @@ export const apiSlice = createApi({
                     const today = new Date();
                     const lastWeek = new Date(today);
                     lastWeek.setDate(today.getDate() - 7);
-                    const dateString = lastWeek.toISOString().split('T')[0];
+                    const dateString = lastWeek.toLocaleDateString('en-CA');
 
                     const q = query(
                         collection(db, "daily_logs"),
@@ -545,7 +554,7 @@ export const apiSlice = createApi({
                         // Or maybe just skip? For now, let's try to use what we have.
                         if (history.length === 0) {
                             // Fallback for legacy: just show current points for today
-                            const today = new Date().toISOString().split('T')[0];
+                            const today = new Date().toLocaleDateString('en-CA');
                             if (!historyMap[today]) historyMap[today] = { date: today, name: new Date().toLocaleDateString('en-US', { weekday: 'short' }) };
                             historyMap[today][name] = p.current_points || 500;
                         } else {
@@ -579,7 +588,7 @@ export const apiSlice = createApi({
 
                     const d = new Date(startDate);
                     while (d <= endDate) {
-                        const dateStr = d.toISOString().split('T')[0];
+                        const dateStr = d.toLocaleDateString('en-CA');
                         const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
 
                         const entry: any = { name: dayName, date: dateStr };
@@ -612,6 +621,138 @@ export const apiSlice = createApi({
             },
             providesTags: ['Challenge', 'Participant'],
         }),
+        // NEW: Get points history for ALL users who share ANY challenge with the current user
+        getSharedParticipantsPointsHistory: builder.query<any[], string>({
+            queryFn: async (userId) => {
+                try {
+                    if (!userId) return { data: [] };
+
+                    // 1. Get all challenges the current user is part of
+                    const userParticipationQuery = query(
+                        collection(db, "challenge_participants"),
+                        where("user_id", "==", userId),
+                        where("is_active", "==", true)
+                    );
+                    const userParticipationSnap = await getDocs(userParticipationQuery);
+                    const userChallengeIds = userParticipationSnap.docs.map(d => d.data().challenge_id);
+
+                    if (userChallengeIds.length === 0) return { data: [] };
+
+                    // 2. Get ALL participants from these challenges (union)
+                    const allParticipants: any[] = [];
+                    const seenUserIds = new Set<string>();
+
+                    // Firestore 'in' is limited to 10, so we batch
+                    for (let i = 0; i < userChallengeIds.length; i += 10) {
+                        const batch = userChallengeIds.slice(i, i + 10);
+                        const pQuery = query(
+                            collection(db, "challenge_participants"),
+                            where("challenge_id", "in", batch)
+                        );
+                        const pSnap = await getDocs(pQuery);
+                        pSnap.docs.forEach(d => {
+                            const data = d.data();
+                            if (!seenUserIds.has(data.user_id)) {
+                                seenUserIds.add(data.user_id);
+                                allParticipants.push(data);
+                            }
+                        });
+                    }
+
+                    if (allParticipants.length === 0) return { data: [] };
+
+                    // 3. Fetch user profiles for names
+                    const userMap: Record<string, string> = {};
+                    for (const uid of Array.from(seenUserIds)) {
+                        const uSnap = await getDoc(doc(db, "profiles", uid));
+                        if (uSnap.exists()) {
+                            const data = uSnap.data();
+                            userMap[uid] = data.display_name || data.email?.split('@')[0] || "User";
+                        } else {
+                            userMap[uid] = "Unknown";
+                        }
+                    }
+
+                    // 4. Build merged points history timeline
+                    const historyMap: Record<string, any> = {};
+
+                    allParticipants.forEach(p => {
+                        const name = userMap[p.user_id];
+                        const history = p.points_history || [];
+
+                        if (history.length === 0) {
+                            // Fallback: show current points for today
+                            const today = new Date().toLocaleDateString('en-CA');
+                            if (!historyMap[today]) {
+                                historyMap[today] = {
+                                    date: today,
+                                    name: new Date().toLocaleDateString('en-US', { weekday: 'short' })
+                                };
+                            }
+                            historyMap[today][name] = p.current_points || 500;
+                        } else {
+                            history.forEach((entry: any) => {
+                                if (!historyMap[entry.date]) {
+                                    const d = new Date(entry.date + 'T00:00:00');
+                                    historyMap[entry.date] = {
+                                        date: entry.date,
+                                        name: d.toLocaleDateString('en-US', { weekday: 'short' })
+                                    };
+                                }
+                                historyMap[entry.date][name] = entry.points;
+                            });
+                        }
+                    });
+
+                    // 5. Create continuous timeline with carried-forward values
+                    const sortedDates = Object.keys(historyMap).sort();
+                    if (sortedDates.length === 0) return { data: [] };
+
+                    const startDate = new Date(sortedDates[0] + 'T00:00:00');
+                    const endDate = new Date();
+                    const finalHistory: any[] = [];
+
+                    // Initialize last known points
+                    const lastKnownPoints: Record<string, number> = {};
+                    Array.from(seenUserIds).forEach(uid => {
+                        lastKnownPoints[userMap[uid]] = 500; // Default starting points
+                    });
+
+                    const d = new Date(startDate);
+                    while (d <= endDate) {
+                        const dateStr = d.toLocaleDateString('en-CA');
+                        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+
+                        const entry: any = { name: dayName, date: dateStr };
+
+                        // Update last known points if we have data for this date
+                        if (historyMap[dateStr]) {
+                            Array.from(seenUserIds).forEach(uid => {
+                                const name = userMap[uid];
+                                if (historyMap[dateStr][name] !== undefined) {
+                                    lastKnownPoints[name] = historyMap[dateStr][name];
+                                }
+                            });
+                        }
+
+                        // Assign points to entry
+                        Array.from(seenUserIds).forEach(uid => {
+                            const name = userMap[uid];
+                            entry[name] = lastKnownPoints[name];
+                        });
+
+                        finalHistory.push(entry);
+                        d.setDate(d.getDate() + 1);
+                    }
+
+                    return { data: finalHistory };
+                } catch (e: any) {
+                    console.error("Error fetching shared participants history:", e);
+                    return { error: e.message };
+                }
+            },
+            providesTags: ['Participant', 'Challenge'],
+        }),
     }),
 });
 
@@ -629,5 +770,6 @@ export const {
     useGetUserWeeklyLogsQuery,
     useGetAllParticipantsQuery,
     useGetChallengePointsHistoryQuery,
+    useGetSharedParticipantsPointsHistoryQuery,
     useUpdateChallengeMutation
 } = apiSlice;

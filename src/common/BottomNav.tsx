@@ -10,9 +10,6 @@ export default function BottomNav() {
     const pathname = usePathname();
     const { userProfile } = useAuth();
 
-    useEffect(() => {
-        console.log({ userProfile });
-    }, [userProfile])
 
     if (!userProfile) return null;
 

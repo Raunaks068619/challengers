@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import TaskProgressCard from "@/components/TaskProgressCard";
 import ParticipantsCard from "@/components/ParticipantsCard";
-import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useGetChallengePointsHistoryQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
+import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useGetSharedParticipantsPointsHistoryQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
 import { checkMissedLogs } from "@/lib/gamification";
 import { Challenge } from "@/types";
 
@@ -36,14 +36,12 @@ export default function Dashboard() {
     skip: !user?.uid,
   });
 
-  // Get the first active challenge ID for the chart
-  const firstChallengeId = activeChallenges.length > 0 ? activeChallenges[0].id : "";
-
-  const { data: challengeHistory = [] } = useGetChallengePointsHistoryQuery(firstChallengeId, {
-    skip: !firstChallengeId
+  // Get shared participants points history (all users across all shared challenges)
+  const { data: sharedParticipantsHistory = [] } = useGetSharedParticipantsPointsHistoryQuery(user?.uid || '', {
+    skip: !user?.uid,
   });
 
-  // Global Points History (Fallback)
+  // Global Points History (Fallback for when no shared data)
   const globalHistoryData = useMemo(() => {
     if (!userProfile?.points_history || userProfile.points_history.length === 0) {
       const today = new Date();
@@ -83,8 +81,10 @@ export default function Dashboard() {
     return finalHistory;
   }, [userProfile]);
 
-  // Use challenge history if available (for comparison), otherwise global
-  const historyData = (activeChallenges.length > 0 && challengeHistory.length > 0) ? challengeHistory : globalHistoryData;
+  // Use shared participants history if available, otherwise fallback to global
+  const historyData = sharedParticipantsHistory.length > 0 ? sharedParticipantsHistory : globalHistoryData;
+
+
 
   // Calculate Task Progress (Daily)
   // Denominator: Active Challenges that are active today (not a rest day)
@@ -97,6 +97,10 @@ export default function Dashboard() {
   const todayStr = today.toISOString().split('T')[0];
 
   const activeChallengesToday = activeChallenges.filter((challenge: Challenge) => {
+    // Exclude challenges that haven't started yet
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    if (challenge.start_date > todayLocal) return false;
+
     const restDays = challenge.rest_days || [];
     return !restDays.includes(dayOfWeek);
   });
@@ -106,16 +110,12 @@ export default function Dashboard() {
     const isCompleted = log.status === 'completed';
     const isActiveChallenge = activeChallengesToday.some(c => c.id === log.challenge_id);
 
-    if (isDateMatch && isCompleted) {
-      console.log("Found completed log for today:", log, "Is Active Challenge:", isActiveChallenge);
-    }
 
     return isDateMatch && isCompleted && isActiveChallenge;
   }).length;
 
   const totalTasksToday = activeChallengesToday.length;
 
-  console.log("DEBUG RESULT:", { completedTasksToday, totalTasksToday });
 
   const totalDailyTasks = activeChallenges.reduce((acc: number, challenge: Challenge) => {
     const restDays = challenge.rest_days || [];
