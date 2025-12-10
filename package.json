@@ -27,7 +27,6 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-json-editor-ajrm": "^2.0.0",
-    "react-json-view": "^1.21.3",
     "react-leaflet": "^5.0.0",
     "react-redux": "^9.2.0",
     "react-webcam": "^7.2.0",

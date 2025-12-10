@@ -6,9 +6,7 @@ import { collection, getDocs, deleteDoc, doc, setDoc, addDoc } from "firebase/fi
 import { toast } from "sonner";
 import AuthGuard from "@/components/AuthGuard";
 import { Trash2, RefreshCw, Plus, CheckSquare, Square } from "lucide-react";
-import dynamic from "next/dynamic";
 
-const ReactJson = dynamic(() => import("react-json-view"), { ssr: false });
 
 const COLLECTIONS = [
     "profiles",
@@ -336,13 +334,9 @@ export default function AdminPage() {
                                 </button>
                             </div>
                             <div className="flex-1 overflow-auto p-4 bg-background">
-                                <ReactJson
-                                    src={previewDoc}
-                                    theme="monokai"
-                                    displayDataTypes={false}
-                                    style={{ fontSize: '12px', backgroundColor: 'transparent' }}
-                                    name={false}
-                                />
+                                <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-words">
+                                    {JSON.stringify(previewDoc, null, 2)}
+                                </pre>
                             </div>
                             <div className="p-4 border-t border-border bg-muted/30 flex justify-between items-center">
                                 <button
