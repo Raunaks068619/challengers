@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase";
 import InstallPrompt from "@/components/InstallPrompt";
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { invalidateProfileCache } from "@/app/actions/profile";
 
 export default function InstallOnboardingPage() {
     const { user } = useAuth();
@@ -17,15 +18,15 @@ export default function InstallOnboardingPage() {
         if (!user) return;
         setLoading(true);
         try {
+            // Update Firestore
             await updateDoc(doc(db, "profiles", user.uid), {
                 install_prompt_seen: true
             });
-            // Force reload or just push to clear the context state effectively if it doesn't auto-update fast enough
-            // But context listens to auth state, so we might need to manually update local state or just push.
-            // Since we updated firestore, the context might not know immediately unless we invalidate cache or similar.
-            // For now, just push. The context check might run again, but if it fetches fresh data it will see true.
-            // Actually, AuthContext only fetches on load. We might need to reload the page to be safe or update context.
-            // But let's try simple push first. If it redirects back, we know we need to update context.
+            // Invalidate Redis cache
+            await invalidateProfileCache(user.uid);
+            // Clear localStorage cache
+            localStorage.removeItem('challengers_profile');
+            // Full page reload to ensure AuthContext fetches fresh data from Firestore
             window.location.href = "/";
         } catch (error) {
             console.error("Error skipping:", error);

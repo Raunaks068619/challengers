@@ -41,3 +41,21 @@ export async function cacheProfile(uid: string, data: any) {
         console.error("Redis set error:", e);
     }
 }
+
+export async function invalidateProfileCache(uid: string) {
+    if (!redis) return;
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Redis timeout')), 2000)
+        );
+
+        await Promise.race([
+            redis.del(`profile:${uid}`),
+            timeoutPromise
+        ]);
+        console.log(`Profile cache invalidated for ${uid}`);
+    } catch (e) {
+        console.error("Redis del error:", e);
+    }
+}
+
