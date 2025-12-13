@@ -30,6 +30,8 @@ export const viewport: Viewport = {
 
 import NotificationManager from "@/components/NotificationManager";
 
+import ThemeSync from "@/components/ThemeSync";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,6 +49,7 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
+                <ThemeSync />
                 <NotificationManager />
                 <div className="pb-20">
                   {children}

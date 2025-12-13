@@ -34,7 +34,7 @@ export const apiSlice = createApi({
                     const docSnap = await getDoc(docRef);
 
                     if (docSnap.exists()) {
-                        return { data: docSnap.data() as UserProfile };
+                        return { data: { ...docSnap.data(), id: docSnap.id } as UserProfile };
                     }
                     return { error: "Profile not found" };
                 } catch (e: any) {
@@ -42,6 +42,18 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Profile'],
+        }),
+        updateProfile: builder.mutation<null, { userId: string; updates: Partial<UserProfile> }>({
+            queryFn: async ({ userId, updates }) => {
+                try {
+                    const docRef = doc(db, "profiles", userId);
+                    await updateDoc(docRef, updates);
+                    return { data: null };
+                } catch (e: any) {
+                    return { error: e.message };
+                }
+            },
+            invalidatesTags: ['Profile'],
         }),
         getActiveChallenges: builder.query<any[], string>({
             queryFn: async (userId) => {
@@ -249,7 +261,31 @@ export const apiSlice = createApi({
                     const snap = await getDocs(q);
 
                     if (!snap.empty) {
-                        await deleteDoc(snap.docs[0].ref);
+                        const participantDoc = snap.docs[0];
+                        const participantData = participantDoc.data();
+                        const pointsToDeduct = participantData.current_points || 0;
+
+                        // 1. Update Global Profile
+                        const profileRef = doc(db, "profiles", userId);
+                        const profileSnap = await getDoc(profileRef);
+
+                        if (profileSnap.exists()) {
+                            const profile = profileSnap.data();
+                            const currentGlobalPoints = profile.current_points || 0;
+                            const newGlobalPoints = Math.max(0, currentGlobalPoints - pointsToDeduct);
+
+                            await updateDoc(profileRef, {
+                                current_points: newGlobalPoints,
+                                points_history: arrayUnion({
+                                    date: new Date().toLocaleDateString('en-CA'),
+                                    points: newGlobalPoints,
+                                    reason: 'left_challenge'
+                                })
+                            });
+                        }
+
+                        // 2. Delete Participant Doc
+                        await deleteDoc(participantDoc.ref);
                     }
                     return { data: null };
                 } catch (e: any) {
@@ -508,7 +544,7 @@ export const apiSlice = createApi({
                     for (const pid of Array.from(participantUserIds)) {
                         const userDoc = await getDoc(doc(db, "profiles", pid));
                         if (userDoc.exists()) {
-                            profiles.push(userDoc.data() as UserProfile);
+                            profiles.push({ ...userDoc.data(), id: userDoc.id } as UserProfile);
                         }
                     }
 
@@ -821,5 +857,6 @@ export const {
     useGetAllParticipantsQuery,
     useGetChallengePointsHistoryQuery,
     useGetChallengeParticipantsPointsHistoryQuery,
-    useUpdateChallengeMutation
+    useUpdateChallengeMutation,
+    useUpdateProfileMutation
 } = apiSlice;

@@ -18,10 +18,10 @@ interface ProgressChartProps {
     };
 }
 
-const CustomTooltip = ({ active, payload, label, userMap }: any) => {
+const CustomTooltip = ({ active, payload, label, userMap, isFull }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-xl min-w-[150px]">
+            <div className={`${isFull ? 'rotate-90' : ''} bg-zinc-900 border border-zinc-800 p-4 rounded-xl shadow-xl min-w-[150px] ${isFull ? 'w-full' : ''}`}>
                 <p className="text-white font-medium mb-2">{label}</p>
                 <div className="space-y-1">
                     {payload.map((entry: any, index: number) => {
@@ -47,7 +47,7 @@ const CustomTooltip = ({ active, payload, label, userMap }: any) => {
 
 export default function ProgressChart({ data }: ProgressChartProps) {
     const { mode, data: chartData, users } = data;
-    const [range, setRange] = useState<'weekly' | 'monthly' | 'all'>('weekly');
+    const [range, setRange] = useState<'week' | 'month' | 'all'>('week');
     const [isFullscreen, setIsFullscreen] = useState(false);
 
     if (!chartData || chartData.length === 0) return null;
@@ -71,8 +71,8 @@ export default function ProgressChart({ data }: ProgressChartProps) {
     // Filter data based on range
     const filteredData = useMemo(() => {
         const end = chartData.length;
-        if (range === 'weekly') return chartData.slice(Math.max(0, end - 7));
-        if (range === 'monthly') return chartData.slice(Math.max(0, end - 30));
+        if (range === 'week') return chartData.slice(Math.max(0, end - 7));
+        if (range === 'month') return chartData.slice(Math.max(0, end - 30));
         return chartData;
     }, [chartData, range]);
 
@@ -83,9 +83,9 @@ export default function ProgressChart({ data }: ProgressChartProps) {
         ? 'Your points history'
         : `Comparing ${users.length} participants`;
 
-    const handleRangeChange = (r: 'weekly' | 'monthly' | 'all') => {
+    const handleRangeChange = (r: 'week' | 'month' | 'all') => {
         setRange(r);
-        if (r !== 'weekly') {
+        if (r !== 'week') {
             setIsFullscreen(true);
         }
     };
@@ -96,88 +96,149 @@ export default function ProgressChart({ data }: ProgressChartProps) {
         setMounted(true);
     }, []);
 
-    const ChartContent = ({ isFull = false }) => (
-        <div className={`w-full h-full flex flex-col ${isFull ? 'p-4' : ''}`}>
-            <div className={`${isFull ? 'mb-2' : 'mb-4'} flex justify-between items-start`}>
-                <div>
-                    <h3 className={`${isFull ? 'text-xl' : 'text-lg'} font-bold text-foreground`}>Activity Overview</h3>
-                    <p className={`${isFull ? 'text-sm' : 'text-sm'} text-muted-foreground`}>{subtitle}</p>
+    const ChartContent = ({ isFull = false }) => {
+        const isVertical = isFull;
+
+        return (
+            <div className={`w-full h-full flex flex-col ${isFull ? 'p-4' : ''}`}>
+                <div className={`${isFull ? 'mb-2' : 'mb-4'} flex justify-between items-start`}>
+                    <div>
+                        <h3 className={`${isFull ? 'text-xl' : 'text-lg'} font-bold text-foreground`}>Activity Overview</h3>
+                        <p className={`${isFull ? 'text-sm' : 'text-sm'} text-muted-foreground`}>{subtitle}</p>
+                    </div>
+                    <button
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className="p-2 hover:bg-muted rounded-full transition-colors text-foreground"
+                    >
+                        {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    </button>
                 </div>
-                <button
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                    className="p-2 hover:bg-muted rounded-full transition-colors text-foreground"
-                >
-                    {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-                </button>
-            </div>
 
-            <div className="flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={filteredData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <defs>
-                            {keys.map((key, index) => (
-                                <linearGradient key={key} id={`color-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={colors[index % colors.length]} stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor={colors[index % colors.length]} stopOpacity={0} />
-                                </linearGradient>
-                            ))}
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                        <XAxis
-                            dataKey="name"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: '#71717a', fontSize: 12 }}
-                            dy={10}
-                            interval={isFull ? 0 : 'preserveStartEnd'}
-                        />
-                        <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: '#71717a', fontSize: 12 }}
-                        />
-                        <Tooltip
-                            content={<CustomTooltip userMap={userMap} />}
-                            cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                            position={{ y: 0 }}
-                        />
-
-                        {keys.map((key, index) => (
-                            <Area
-                                key={key}
-                                type="monotone"
-                                dataKey={key}
-                                name={userMap[key] || key}
-                                stroke={colors[index % colors.length]}
-                                strokeWidth={3}
-                                fillOpacity={1}
-                                fill={`url(#color-${index})`}
-                                connectNulls={false}
-                            />
-                        ))}
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
-
-            {/* Tabs */}
-            <div className={`${isFull ? 'mt-2' : 'mt-4'} flex justify-center`}>
-                <div className="bg-muted/50 p-1 rounded-xl flex gap-1">
-                    {(['weekly', 'monthly', 'all'] as const).map((r) => (
-                        <button
-                            key={r}
-                            onClick={() => handleRangeChange(r)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${range === r
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
-                                }`}
+                <div className="flex-1 min-h-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                            layout={isVertical ? 'vertical' : 'horizontal'}
+                            data={filteredData}
+                            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
                         >
-                            {r.charAt(0).toUpperCase() + r.slice(1)}
-                        </button>
-                    ))}
+                            <defs>
+                                {keys.map((key, index) => (
+                                    <linearGradient key={key} id={`color-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={colors[index % colors.length]} stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor={colors[index % colors.length]} stopOpacity={0} />
+                                    </linearGradient>
+                                ))}
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+
+                            {isVertical ? (
+                                <>
+                                    <XAxis
+                                        type="number"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={({ x, y, payload }) => (
+                                            <g transform={`translate(${x},${y})`}>
+                                                <text
+                                                    x={0}
+                                                    y={0}
+                                                    dx={12}
+                                                    textAnchor="middle"
+                                                    fill="#71717a"
+                                                    fontSize={12}
+                                                    transform="rotate(90)"
+                                                >
+                                                    {payload.value}
+                                                </text>
+                                            </g>
+                                        )}
+                                        dy={10}
+                                        interval={'preserveStartEnd'}
+                                    />
+                                    <YAxis
+                                        dataKey="name"
+                                        type="category"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        width={40}
+                                        tick={({ x, y, payload }) => (
+                                            <g transform={`translate(${x},${y})`}>
+                                                <text
+                                                    x={0}
+                                                    y={0}
+                                                    dy={4}
+                                                    textAnchor="middle"
+                                                    fill="#71717a"
+                                                    fontSize={12}
+                                                    transform="rotate(90)"
+                                                >
+                                                    {payload.value}
+                                                </text>
+                                            </g>
+                                        )}
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#71717a', fontSize: 12 }}
+                                        dy={10}
+                                        interval={'preserveStartEnd'}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#71717a', fontSize: 12 }}
+                                    />
+                                </>
+                            )}
+
+                            <Tooltip
+                                content={<CustomTooltip userMap={userMap} isFull={isFull} />}
+                                cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                position={{ y: -100 }}
+                            />
+
+                            {keys.map((key, index) => (
+                                <Area
+                                    key={key}
+                                    type="monotone"
+                                    dataKey={key}
+                                    name={userMap[key] || key}
+                                    stroke={colors[index % colors.length]}
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill={`url(#color-${index})`}
+                                    connectNulls={false}
+                                />
+                            ))}
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Tabs */}
+                <div className={`${isFull ? 'mt-2' : 'mt-4'} flex justify-center`}>
+                    <div className={`bg-muted/50 ${isFull ? 'py-5 px-1':' p-2'} rounded-xl flex gap-1`}>
+                        {(['week', 'month', 'all'] as const).map((r) => (
+                            <button
+                                key={r}
+                                onClick={() => handleRangeChange(r)}
+                                className={` ${isFull ? 'rotate-90 px-2 py-1' : 'py-2 px-4'} rounded-lg text-xs font-medium transition-all ${range === r
+                                    ? 'bg-primary text-primary-foreground shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                            >
+                                {r.charAt(0).toUpperCase() + r.slice(1)}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <>
@@ -189,16 +250,8 @@ export default function ProgressChart({ data }: ProgressChartProps) {
             {/* Fullscreen Overlay */}
             {mounted && isFullscreen && createPortal(
                 <div className="fixed inset-0 z-[200] bg-background flex items-center justify-center overflow-hidden">
-                    <div style={{
-                        position: 'relative',
-                        height: '100vh',
-                        width: '100vw',
-                        top: 0,
-                        left: 0,
-                    }}>
-                        <div className="absolute top-[27%] left-[-40%] rotate-90 w-[90vh] h-[90vw] origin-center bg-background">
-                            <ChartContent isFull={true} />
-                        </div>
+                    <div className="w-full h-full bg-background">
+                        <ChartContent isFull={true} />
                     </div>
                 </div>,
                 document.body
