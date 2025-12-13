@@ -163,7 +163,7 @@ export default function CheckInPage() {
                     ctx.translate(canvas.width, 0);
                     ctx.scale(-1, 1);
                     ctx.drawImage(bitmap, 0, 0);
-                    const imageUrl = canvas.toDataURL('image/jpeg', 0.92);
+                    const imageUrl = canvas.toDataURL('image/jpeg', 0.52);
                     console.log("Captured using ImageCapture API (High Res)");
                     return imageUrl;
                 }

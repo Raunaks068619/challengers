@@ -24,7 +24,8 @@ import { Challenge, UserProfile, ChallengeParticipant } from '@/types';
 export const apiSlice = createApi({
     reducerPath: 'api',
     baseQuery: fakeBaseQuery(),
-    tagTypes: ['Profile', 'Challenge', 'Participant'],
+    tagTypes: ['Profile', 'Challenge', 'Participant', 'Log'],
+    refetchOnMountOrArgChange: true, // Auto-refetch when component mounts
     endpoints: (builder) => ({
         getProfile: builder.query<UserProfile, string>({
             queryFn: async (userId) => {
@@ -179,7 +180,7 @@ export const apiSlice = createApi({
                     return { error: e?.message || "An unexpected error occurred" };
                 }
             },
-            invalidatesTags: ['Challenge', 'Participant'],
+            invalidatesTags: ['Challenge', 'Participant', 'Profile'],
         }),
         joinChallengeByCode: builder.mutation<string, { code: string; userId: string }>({
             queryFn: async ({ code, userId }) => {
@@ -235,7 +236,7 @@ export const apiSlice = createApi({
                     return { error: e.message };
                 }
             },
-            invalidatesTags: ['Challenge', 'Participant'],
+            invalidatesTags: ['Challenge', 'Participant', 'Profile'],
         }),
         leaveChallenge: builder.mutation<null, { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
@@ -256,7 +257,7 @@ export const apiSlice = createApi({
                     return { error: e?.message || "An unexpected error occurred" };
                 }
             },
-            invalidatesTags: ['Challenge', 'Participant'],
+            invalidatesTags: ['Challenge', 'Participant', 'Profile'],
         }),
         createChallenge: builder.mutation<string, { challenge: Partial<Challenge>; userId: string }>({
             queryFn: async ({ challenge, userId }) => {
@@ -425,7 +426,7 @@ export const apiSlice = createApi({
                     return { error: error?.message || "An unexpected error occurred" };
                 }
             },
-            invalidatesTags: ['Participant', 'Profile', 'Challenge'],
+            invalidatesTags: ['Participant', 'Profile', 'Challenge', 'Log'],
         }),
         getUserChallengeLogs: builder.query<any[], { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
@@ -469,7 +470,7 @@ export const apiSlice = createApi({
                     return { error: e.message };
                 }
             },
-            providesTags: ['Participant'],
+            providesTags: ['Log', 'Participant'],
         }),
         getAllParticipants: builder.query<UserProfile[], string>({
             queryFn: async (userId) => {
@@ -621,49 +622,46 @@ export const apiSlice = createApi({
             },
             providesTags: ['Challenge', 'Participant'],
         }),
-        // NEW: Get points history for ALL users who share ANY challenge with the current user
-        getSharedParticipantsPointsHistory: builder.query<any[], string>({
-            queryFn: async (userId) => {
+        // Challenge-specific participant points comparison
+        getChallengeParticipantsPointsHistory: builder.query<{ history: any[]; users: { id: string; name: string }[] }, string>({
+            queryFn: async (challengeId) => {
                 try {
-                    if (!userId) return { data: [] };
+                    if (!challengeId) return { data: { history: [], users: [] } };
 
-                    // 1. Get all challenges the current user is part of
-                    const userParticipationQuery = query(
-                        collection(db, "challenge_participants"),
-                        where("user_id", "==", userId),
-                        where("is_active", "==", true)
-                    );
-                    const userParticipationSnap = await getDocs(userParticipationQuery);
-                    const userChallengeIds = userParticipationSnap.docs.map(d => d.data().challenge_id);
+                    // 1. Get challenge metadata (for date bounds)
+                    const challengeRef = doc(db, "challenges", challengeId);
+                    const challengeSnap = await getDoc(challengeRef);
+                    if (!challengeSnap.exists()) return { data: { history: [], users: [] } };
 
-                    if (userChallengeIds.length === 0) return { data: [] };
+                    const challenge = challengeSnap.data();
+                    const startDateStr = challenge.start_date; // 'YYYY-MM-DD'
+                    const endDateStr = challenge.end_date || null;
+                    const startDate = new Date(startDateStr + 'T00:00:00');
+                    let endDate = endDateStr
+                        ? new Date(endDateStr + 'T23:59:59')
+                        : new Date();
 
-                    // 2. Get ALL participants from these challenges (union)
-                    const allParticipants: any[] = [];
-                    const seenUserIds = new Set<string>();
-
-                    // Firestore 'in' is limited to 10, so we batch
-                    for (let i = 0; i < userChallengeIds.length; i += 10) {
-                        const batch = userChallengeIds.slice(i, i + 10);
-                        const pQuery = query(
-                            collection(db, "challenge_participants"),
-                            where("challenge_id", "in", batch)
-                        );
-                        const pSnap = await getDocs(pQuery);
-                        pSnap.docs.forEach(d => {
-                            const data = d.data();
-                            if (!seenUserIds.has(data.user_id)) {
-                                seenUserIds.add(data.user_id);
-                                allParticipants.push(data);
-                            }
-                        });
+                    // Fallback if endDate is invalid
+                    if (isNaN(endDate.getTime())) {
+                        endDate = new Date();
                     }
 
-                    if (allParticipants.length === 0) return { data: [] };
+                    // 2. Get all active participants for this challenge
+                    const pQuery = query(
+                        collection(db, "challenge_participants"),
+                        where("challenge_id", "==", challengeId),
+                        where("is_active", "==", true)
+                    );
+                    const pSnap = await getDocs(pQuery);
+                    const participants = pSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
 
-                    // 3. Fetch user profiles for names
+                    if (participants.length === 0) return { data: { history: [], users: [] } };
+
+                    // 3. Fetch profiles for names
+                    const userIds = Array.from(new Set(participants.map(p => p.user_id)));
                     const userMap: Record<string, string> = {};
-                    for (const uid of Array.from(seenUserIds)) {
+
+                    for (const uid of userIds) {
                         const uSnap = await getDoc(doc(db, "profiles", uid));
                         if (uSnap.exists()) {
                             const data = uSnap.data();
@@ -673,81 +671,133 @@ export const apiSlice = createApi({
                         }
                     }
 
-                    // 4. Build merged points history timeline
-                    const historyMap: Record<string, any> = {};
+                    // 4. Build history map keyed by date, values keyed by userId
+                    // Also track the earliest date in participant history
+                    const historyMap: Record<string, Record<string, number>> = {};
+                    let earliestHistoryDate: string | null = null;
 
-                    allParticipants.forEach(p => {
-                        const name = userMap[p.user_id];
+                    participants.forEach(p => {
                         const history = p.points_history || [];
 
-                        if (history.length === 0) {
-                            // Fallback: show current points for today
-                            const today = new Date().toLocaleDateString('en-CA');
-                            if (!historyMap[today]) {
-                                historyMap[today] = {
-                                    date: today,
-                                    name: new Date().toLocaleDateString('en-US', { weekday: 'short' })
-                                };
+                        history.forEach((entry: any) => {
+                            if (!historyMap[entry.date]) {
+
+                                historyMap[entry.date] = {};
                             }
-                            historyMap[today][name] = p.current_points || 500;
-                        } else {
-                            history.forEach((entry: any) => {
-                                if (!historyMap[entry.date]) {
-                                    const d = new Date(entry.date + 'T00:00:00');
-                                    historyMap[entry.date] = {
-                                        date: entry.date,
-                                        name: d.toLocaleDateString('en-US', { weekday: 'short' })
-                                    };
-                                }
-                                historyMap[entry.date][name] = entry.points;
-                            });
-                        }
-                    });
+                            historyMap[entry.date][p.user_id] = entry.points;
 
-                    // 5. Create continuous timeline with carried-forward values
-                    const sortedDates = Object.keys(historyMap).sort();
-                    if (sortedDates.length === 0) return { data: [] };
-
-                    const startDate = new Date(sortedDates[0] + 'T00:00:00');
-                    const endDate = new Date();
-                    const finalHistory: any[] = [];
-
-                    // Initialize last known points
-                    const lastKnownPoints: Record<string, number> = {};
-                    Array.from(seenUserIds).forEach(uid => {
-                        lastKnownPoints[userMap[uid]] = 500; // Default starting points
-                    });
-
-                    const d = new Date(startDate);
-                    while (d <= endDate) {
-                        const dateStr = d.toLocaleDateString('en-CA');
-                        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-
-                        const entry: any = { name: dayName, date: dateStr };
-
-                        // Update last known points if we have data for this date
-                        if (historyMap[dateStr]) {
-                            Array.from(seenUserIds).forEach(uid => {
-                                const name = userMap[uid];
-                                if (historyMap[dateStr][name] !== undefined) {
-                                    lastKnownPoints[name] = historyMap[dateStr][name];
-                                }
-                            });
-                        }
-
-                        // Assign points to entry
-                        Array.from(seenUserIds).forEach(uid => {
-                            const name = userMap[uid];
-                            entry[name] = lastKnownPoints[name];
+                            // Track earliest date
+                            if (!earliestHistoryDate || entry.date < earliestHistoryDate) {
+                                earliestHistoryDate = entry.date;
+                            }
                         });
 
-                        finalHistory.push(entry);
+                        // Also consider created_at if no history
+                        if (history.length === 0 && p.created_at) {
+                            const createdDate = p.created_at.split('T')[0];
+                            if (!earliestHistoryDate || createdDate < earliestHistoryDate) {
+                                earliestHistoryDate = createdDate;
+                            }
+                        }
+                    });
+
+
+
+
+                    // 5. Initialize lastKnown with starting points (use current_points as baseline)
+                    const lastKnown: Record<string, number | null> = {};
+                    const startingPoints: Record<string, number> = {};
+                    userIds.forEach(uid => {
+                        // Use 500 as default starting points (all participants start with 500)
+                        startingPoints[uid] = 500;
+                        lastKnown[uid] = null;
+                    });
+
+                    // 6. Continuous timeline - use earliest of: challenge.start_date, earliest history date, or participant created_at
+                    const finalHistory: any[] = [];
+                    const today = new Date();
+                    const finalEnd = endDate > today ? today : endDate;
+
+                    // Determine effective start: use earliest participant data or challenge start, whichever is earlier
+                    let effectiveStartStr = startDateStr;
+                    if (earliestHistoryDate && earliestHistoryDate < startDateStr) {
+                        effectiveStartStr = earliestHistoryDate;
+                    }
+                    const effectiveStart = new Date(effectiveStartStr + 'T00:00:00');
+
+                    const d = new Date(effectiveStart);
+
+                    while (d <= finalEnd) {
+                        // Use local date string (YYYY-MM-DD) to match historyMap keys
+                        // Manual formatting to ensure consistency across locales
+                        const year = d.getFullYear();
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const dateStr = `${year}-${month}-${day}`;
+
+                        const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+
+                        const row: any = { date: dateStr, name: dayName };
+
+                        // Update lastKnown from historyMap
+
+
+                        if (historyMap[dateStr]) {
+                            userIds.forEach(uid => {
+                                if (historyMap[dateStr][uid] !== undefined) {
+                                    lastKnown[uid] = historyMap[dateStr][uid];
+                                }
+                            });
+                        }
+
+                        // Fill each user (use user_id as key)
+                        userIds.forEach(uid => {
+                            const participant = participants.find(p => p.user_id === uid);
+                            const joinedAt = participant?.joined_at || participant?.created_at?.split('T')[0];
+
+                            if (joinedAt && dateStr < joinedAt) {
+                                row[uid] = null; // no line before join
+                            } else {
+                                // If we have history data, use it; otherwise use starting points
+                                if (lastKnown[uid] !== null) {
+                                    row[uid] = lastKnown[uid];
+                                } else {
+                                    // First data point after join - use starting points
+                                    row[uid] = startingPoints[uid];
+                                    lastKnown[uid] = startingPoints[uid];
+                                }
+                            }
+                        });
+
+                        finalHistory.push(row);
                         d.setDate(d.getDate() + 1);
                     }
 
-                    return { data: finalHistory };
+                    // 7. If still empty (edge case), add at least today's point
+                    if (finalHistory.length === 0) {
+                        const year = today.getFullYear();
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
+                        const day = String(today.getDate()).padStart(2, '0');
+                        const todayStr = `${year}-${month}-${day}`;
+
+                        const dayName = today.toLocaleDateString('en-US', { weekday: 'short' });
+                        const row: any = { date: todayStr, name: dayName };
+                        userIds.forEach(uid => {
+                            const participant = participants.find(p => p.user_id === uid);
+                            row[uid] = participant?.current_points || 500;
+                        });
+                        finalHistory.push(row);
+                    }
+
+                    // 8. Return both history and users mapping (limit to last 7 days)
+                    return {
+                        data: {
+                            history: finalHistory,
+                            users: userIds.map(uid => ({ id: uid, name: userMap[uid] })),
+                        }
+                    };
                 } catch (e: any) {
-                    console.error("Error fetching shared participants history:", e);
+                    console.error("Error fetching challenge participants history:", e);
                     return { error: e.message };
                 }
             },
@@ -770,6 +820,6 @@ export const {
     useGetUserWeeklyLogsQuery,
     useGetAllParticipantsQuery,
     useGetChallengePointsHistoryQuery,
-    useGetSharedParticipantsPointsHistoryQuery,
+    useGetChallengeParticipantsPointsHistoryQuery,
     useUpdateChallengeMutation
 } = apiSlice;

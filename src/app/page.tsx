@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import TaskProgressCard from "@/components/TaskProgressCard";
 import ParticipantsCard from "@/components/ParticipantsCard";
-import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useGetSharedParticipantsPointsHistoryQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
+import { useGetProfileQuery, useGetActiveChallengesQuery, useGetUserWeeklyLogsQuery, useGetAllParticipantsQuery, useJoinChallengeByCodeMutation } from "@/lib/features/api/apiSlice";
 import { checkMissedLogs } from "@/lib/gamification";
 import { Challenge } from "@/types";
 
@@ -36,20 +36,19 @@ export default function Dashboard() {
     skip: !user?.uid,
   });
 
-  // Get shared participants points history (all users across all shared challenges)
-  const { data: sharedParticipantsHistory = [] } = useGetSharedParticipantsPointsHistoryQuery(user?.uid || '', {
-    skip: !user?.uid,
-  });
-
-  // Global Points History (Fallback for when no shared data)
-  const globalHistoryData = useMemo(() => {
+  // Global Points History (user's own points from profiles.points_history)
+  const historyData = useMemo(() => {
     if (!userProfile?.points_history || userProfile.points_history.length === 0) {
       const today = new Date();
-      return [{
-        name: today.toLocaleDateString('en-US', { weekday: 'short' }),
-        date: today.toISOString().split('T')[0],
-        [userProfile?.display_name || 'User']: userProfile?.current_points || 0
-      }];
+      return {
+        mode: 'global' as const,
+        data: [{
+          name: today.toLocaleDateString('en-US', { weekday: 'short' }),
+          date: today.toISOString().split('T')[0],
+          [userProfile?.display_name || 'You']: userProfile?.current_points || 0
+        }],
+        users: [{ id: user?.uid || '', name: userProfile?.display_name || 'You' }]
+      };
     }
 
     const history = [...userProfile.points_history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -73,16 +72,18 @@ export default function Dashboard() {
       finalHistory.push({
         name: dayName,
         date: dateStr,
-        [userProfile?.display_name || 'User']: lastPoints
+        [userProfile?.display_name || 'You']: lastPoints
       });
 
       d.setDate(d.getDate() + 1);
     }
-    return finalHistory;
-  }, [userProfile]);
 
-  // Use shared participants history if available, otherwise fallback to global
-  const historyData = sharedParticipantsHistory.length > 0 ? sharedParticipantsHistory : globalHistoryData;
+    return {
+      mode: 'global' as const,
+      data: finalHistory,
+      users: [{ id: user?.uid || '', name: userProfile?.display_name || 'You' }]
+    };
+  }, [userProfile, user?.uid]);
 
 
 
