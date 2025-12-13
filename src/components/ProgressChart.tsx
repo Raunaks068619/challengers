@@ -199,7 +199,7 @@ export default function ProgressChart({ data }: ProgressChartProps) {
                             <Tooltip
                                 content={<CustomTooltip userMap={userMap} isFull={isFull} />}
                                 cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                position={{ y: -100 }}
+                                position={isVertical ? undefined : { y: 30 }}
                             />
 
                             {keys.map((key, index) => (
