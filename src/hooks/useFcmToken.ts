@@ -26,9 +26,7 @@ export default function useFcmToken() {
 
                     if (permission === "granted") {
                         const currentToken = await getToken(messaging, {
-                            vapidKey: "BM_9Bf_2X9k_2X9k_2X9k_2X9k_2X9k_2X9k" // Replace with actual VAPID key if available, or env var
-                            // Actually, we need the VAPID key. I'll check if it's in env or I need to ask user.
-                            // For now I will assume it is in env or I will use a placeholder and ask user to fill it.
+                            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
                         });
 
                         if (currentToken) {
