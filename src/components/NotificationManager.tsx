@@ -48,7 +48,7 @@ export default function NotificationManager() {
                     if (diff === 15 && !sentNotificationsRef.current.has(notificationKey + '-start')) {
                         new Notification(`Upcoming Challenge: ${challenge.title}`, {
                             body: `Your challenge starts in 15 minutes! Get ready.`,
-                            icon: '/icon-192x192.png' // Assuming PWA icon exists
+                            icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>'
                         });
                         sentNotificationsRef.current.add(notificationKey + '-start');
                         toast.info(`Reminder: ${challenge.title} starts in 15 mins!`);
@@ -59,7 +59,7 @@ export default function NotificationManager() {
                     if (currentHour === 11 && currentMinute === 0 && !sentNotificationsRef.current.has(notificationKey + '-daily')) {
                         new Notification(`Daily Challenge Reminder`, {
                             body: `Don't forget to complete your challenge: ${challenge.title}`,
-                            icon: '/icon-192x192.png'
+                            icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>'
                         });
                         sentNotificationsRef.current.add(notificationKey + '-daily');
                         toast.info(`Reminder: Complete ${challenge.title} today!`);

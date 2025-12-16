@@ -2,6 +2,7 @@ import "server-only";
 import { initializeApp, getApps, cert, getApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
+import { getMessaging } from "firebase-admin/messaging";
 
 const serviceAccount = {
     projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -20,3 +21,4 @@ export function getAdminApp() {
 
 export const adminDb = getFirestore(getAdminApp());
 export const adminAuth = getAuth(getAdminApp());
+export const adminMessaging = getMessaging(getAdminApp());

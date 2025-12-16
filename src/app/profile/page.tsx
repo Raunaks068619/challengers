@@ -10,8 +10,9 @@ import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { generateAvatarAction, generateVisualDescriptionAction } from "@/app/actions/generateAvatar";
 import { cacheProfile } from "@/app/actions/profile";
@@ -39,6 +40,8 @@ export default function ProfilePage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
     const [isThinking, setIsThinking] = useState(false);
+
+    const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
 
     useEffect(() => {
         if (userProfile) {
@@ -210,7 +213,8 @@ export default function ProfilePage() {
                     showOptionButton={[
                         {
                             title: "Sign Out",
-                            runFunction: logout
+                            runFunction: logout,
+                            icon: <LogOut className="w-4 h-4" />
                         }
                     ]}
                 />
@@ -218,17 +222,22 @@ export default function ProfilePage() {
                 <div className="space-y-6">
                     {/* Avatar Section */}
                     <div className="flex flex-col items-center gap-4">
-                        <div className="h-28 w-28 rounded-full bg-muted overflow-hidden border-2 border-border relative group">
+                        <motion.div
+                            layoutId="profile-image"
+                            className="h-28 w-28 rounded-full bg-muted overflow-hidden border-2 border-border relative group cursor-pointer"
+                            onClick={() => formData.photo_url && setIsPhotoModalOpen(true)}
+                        >
                             {formData.photo_url ? (
-                                <img src={formData.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                                <motion.img src={formData.photo_url} alt="Profile" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center text-muted-foreground text-3xl">?</div>
                             )}
-                            <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            <label
+                                className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            >
                                 <span className="text-xs font-medium text-white">Change</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                             </label>
-                        </div>
+                        </motion.div>
                         <div className="flex gap-2">
                             <label className="px-4 py-2 bg-card border border-border rounded-lg text-xs font-medium hover:bg-muted cursor-pointer transition-colors text-foreground">
                                 Upload Photo
@@ -422,6 +431,38 @@ export default function ProfilePage() {
                         </div>
                     </div>
                 )}
+
+                {/* Profile Photo View Modal */}
+                {/* Profile Photo View Modal */}
+                <AnimatePresence>
+                    {isPhotoModalOpen && formData.photo_url && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-background/90 flex items-center justify-center p-4 z-[60] backdrop-blur-md"
+                            onClick={() => setIsPhotoModalOpen(false)}
+                        >
+                            <motion.div
+                                layoutId="profile-image"
+                                className="relative max-w-md w-full aspect-square rounded-lg overflow-hidden shadow-2xl"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <motion.img
+                                    src={formData.photo_url}
+                                    alt="Profile Full View"
+                                    className="w-full h-full object-contain"
+                                />
+                                <button
+                                    onClick={() => setIsPhotoModalOpen(false)}
+                                    className="absolute top-4 right-4 text-foreground/70 hover:text-foreground bg-background/20 hover:bg-background/40 rounded-full p-2 transition-all backdrop-blur-sm"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                </button>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </AuthGuard >
     );

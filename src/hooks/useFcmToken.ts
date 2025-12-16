@@ -25,8 +25,15 @@ export default function useFcmToken() {
                     setNotificationPermission(permission);
 
                     if (permission === "granted") {
+                        // Explicitly register service worker to ensure it exists even if unregistered
+                        let serviceWorkerRegistration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+                        if (!serviceWorkerRegistration) {
+                            serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                        }
+
                         const currentToken = await getToken(messaging, {
-                            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+                            vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+                            serviceWorkerRegistration
                         });
 
                         if (currentToken) {

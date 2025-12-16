@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb, adminMessaging } from "@/lib/firebaseAdmin";
+import { adminAuth, adminDb, adminMessaging } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(request: Request) {
@@ -64,21 +64,25 @@ export async function POST(request: Request) {
             ...unreadUpdates
         });
 
+        // Fetch sender details for notification
+        const senderDoc = await adminDb.collection("users").doc(senderId).get();
+        const senderData = senderDoc.data();
+        const senderName = senderData?.displayName || "New Message";
+        const senderImage = senderData?.photoURL || "/icons/icon-192x192.png";
+
         // 3. Send FCM Notifications
         if (fcmTokensToSend.length > 0) {
             // Remove duplicates
             const uniqueTokens = [...new Set(fcmTokensToSend)];
 
             // Send multicast message
-            // Note: In production, handle invalid tokens response
             try {
                 await adminMessaging.sendEachForMulticast({
                     tokens: uniqueTokens,
-                    notification: {
-                        title: "New Message",
-                        body: text,
-                    },
                     data: {
+                        title: senderName,
+                        body: text,
+                        icon: senderImage,
                         conversationId,
                         url: `/messages/${conversationId}`
                     },

@@ -15,12 +15,22 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function (payload) {
     console.log('[firebase-messaging-sw.js] Received background message ', payload);
-    // Customize notification here
-    const notificationTitle = payload.notification.title;
+
+    // Prefer data payload, fallback to notification payload
+    const notificationTitle = payload.data?.title || payload.notification?.title || "New Message";
     const notificationOptions = {
-        body: payload.notification.body,
-        icon: '/icons/icon-192x192.png'
+        body: payload.data?.body || payload.notification?.body || "",
+        icon: payload.data?.icon || '/icons/icon-192x192.png',
+        data: payload.data // Pass data to notification for click handling
     };
 
     self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function (event) {
+    event.notification.close();
+    const url = event.notification.data?.url || '/messages';
+    event.waitUntil(
+        clients.openWindow(url)
+    );
 });
