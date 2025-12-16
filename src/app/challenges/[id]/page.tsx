@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
 import { Challenge, ChallengeParticipant } from "@/types";
-import { ChevronLeft, Share2, MapPin, Trophy, Flame, Camera, LogOut, Edit, Info, X, Calendar, Clock, Users } from "lucide-react";
+import { ChevronLeft, Share2, MapPin, Trophy, Flame, Camera, LogOut, Edit, Info, X, Calendar, Clock, Users, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import BackButton from "@/common/BackButton";
 import PageHeader from "@/components/PageHeader";
@@ -16,6 +16,7 @@ import { useGetChallengeQuery, useGetParticipantDataQuery, useJoinChallengeMutat
 import StoryViewer from "@/components/StoryViewer";
 import ShareModal from "@/components/ShareModal";
 import ProgressChart from "@/components/ProgressChart";
+import ChatWindow from "@/components/chat/ChatWindow";
 
 export default function ChallengeDetailsPage() {
     const { id } = useParams();
@@ -54,6 +55,7 @@ export default function ChallengeDetailsPage() {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [showStoryViewer, setShowStoryViewer] = useState(false);
     const [selectedLogIndex, setSelectedLogIndex] = useState(0);
+    const [activeTab, setActiveTab] = useState<'details' | 'chat'>('details');
 
     // Auto Join Effect
     useEffect(() => {
@@ -311,99 +313,148 @@ export default function ChallengeDetailsPage() {
                     initialIndex={selectedLogIndex}
                 />
 
-                {/* Banner Image */}
-                {challenge.banner_url && (
-                    <div className="w-full h-48 rounded-2xl overflow-hidden mb-6 border border-border">
-                        <img src={challenge.banner_url} alt={challenge.title} className="w-full h-full object-cover" />
+                <div className="flex gap-2 mb-6 bg-muted/30 p-1 rounded-xl">
+                    <button
+                        onClick={() => setActiveTab('details')}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === 'details'
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                            }`}
+                    >
+                        Details
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('chat')}
+                        className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'chat'
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                            }`}
+                    >
+                        <MessageCircle className="w-4 h-4" />
+                        Chat
+                    </button>
+                </div>
+
+                {activeTab === 'chat' ? (
+                    <div className="h-[calc(100vh-200px)]">
+                        {participantData ? (
+                            <ChatWindow
+                                conversationId={challenge.id || ''}
+                                currentUserId={user?.uid || ''}
+                                participants={challenge.participants || []}
+                            />
+                        ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-card rounded-xl border border-border">
+                                <MessageCircle className="w-12 h-12 text-muted-foreground mb-4" />
+                                <h3 className="text-lg font-bold mb-2">Join to Chat</h3>
+                                <p className="text-muted-foreground text-sm mb-6">
+                                    You need to join this challenge to participate in the conversation.
+                                </p>
+                                <button
+                                    onClick={handleJoin}
+                                    disabled={joining}
+                                    className="px-6 py-3 bg-primary rounded-xl font-bold text-primary-foreground hover:opacity-90 transition-opacity"
+                                >
+                                    {joining ? "Joining..." : "Join Challenge"}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Banner Image */}
+                        {challenge.banner_url && (
+                            <div className="w-full h-48 rounded-2xl overflow-hidden mb-6 border border-border">
+                                <img src={challenge.banner_url} alt={challenge.title} className="w-full h-full object-cover" />
+                            </div>
+                        )}
+
+                        {/* My Stats (If Participant) */}
+                        {participantData && (
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
+                                        <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center mb-2">
+                                            <Flame className="w-4 h-4 text-orange-500" />
+                                        </div>
+                                        <p className="text-xl font-bold text-foreground">{participantData.streak_current}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Day Streak</p>
+                                    </div>
+                                    <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
+                                        <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center mb-2">
+                                            <Trophy className="w-4 h-4 text-yellow-500" />
+                                        </div>
+                                        <p className="text-xl font-bold text-foreground">{participantData.current_points}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Points</p>
+                                    </div>
+                                </div>
+
+                                {/* Progress Chart - Participant Comparison */}
+                                {chartData && <ProgressChart data={chartData} />}
+                            </>
+                        )}
+
+                        {/* Actions */}
+                        {!participantData ? (
+                            <button
+                                onClick={handleJoin}
+                                disabled={joining}
+                                className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 transition-opacity"
+                            >
+                                {joining ? "Joining..." : "Join Challenge (+500 pts)"}
+                            </button>
+                        ) : (
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    <Link
+                                        href={`/challenges/${challenge.id}/check-in`}
+                                        className="block w-full py-4 bg-green-600 rounded-xl font-bold text-base text-white text-center hover:bg-green-500 shadow-lg shadow-green-500/20 transition-colors"
+                                    >
+                                        Check In Now
+                                    </Link>
+                                    <p className="text-center text-xs text-muted-foreground">
+                                        {challenge.time_window_start && challenge.time_window_end
+                                            ? `Check-in available between ${challenge.time_window_start} and ${challenge.time_window_end}`
+                                            : "Check-in available anytime today"}
+                                    </p>
+                                </div>
+
+                                {/* Logs Section */}
+                                <div>
+                                    <h3 className="text-base font-semibold mb-4 text-foreground">Your Logs</h3>
+                                    {logs.length === 0 ? (
+                                        <p className="text-muted-foreground text-sm">No logs yet. Check in to start your streak!</p>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {logs.map((log: any, index: number) => (
+                                                <div
+                                                    key={log.id}
+                                                    onClick={() => handleLogClick(index)}
+                                                    className="bg-card rounded-xl p-4 border border-border flex gap-4 cursor-pointer hover:bg-muted transition-colors"
+                                                >
+                                                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0 border border-border">
+                                                        {log.proof_url ? (
+                                                            <img src={log.proof_url} alt="Proof" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                                                <Camera className="w-6 h-6" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-foreground text-sm">{new Date(log.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                                                        <p className="text-xs text-green-500 mt-1 font-medium">Verified</p>
+                                                        {log.note && <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">{log.note}</p>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
-
-                <div className="space-y-6">
-                    {/* My Stats (If Participant) */}
-                    {participantData && (
-                        <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
-                                    <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center mb-2">
-                                        <Flame className="w-4 h-4 text-orange-500" />
-                                    </div>
-                                    <p className="text-xl font-bold text-foreground">{participantData.streak_current}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Day Streak</p>
-                                </div>
-                                <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
-                                    <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center mb-2">
-                                        <Trophy className="w-4 h-4 text-yellow-500" />
-                                    </div>
-                                    <p className="text-xl font-bold text-foreground">{participantData.current_points}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Points</p>
-                                </div>
-                            </div>
-
-                            {/* Progress Chart - Participant Comparison */}
-                            {chartData && <ProgressChart data={chartData} />}
-                        </>
-                    )}
-
-                    {/* Actions */}
-                    {!participantData ? (
-                        <button
-                            onClick={handleJoin}
-                            disabled={joining}
-                            className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 transition-opacity"
-                        >
-                            {joining ? "Joining..." : "Join Challenge (+500 pts)"}
-                        </button>
-                    ) : (
-                        <div className="space-y-6">
-                            <div className="space-y-3">
-                                <Link
-                                    href={`/challenges/${challenge.id}/check-in`}
-                                    className="block w-full py-4 bg-green-600 rounded-xl font-bold text-base text-white text-center hover:bg-green-500 shadow-lg shadow-green-500/20 transition-colors"
-                                >
-                                    Check In Now
-                                </Link>
-                                <p className="text-center text-xs text-muted-foreground">
-                                    {challenge.time_window_start && challenge.time_window_end
-                                        ? `Check-in available between ${challenge.time_window_start} and ${challenge.time_window_end}`
-                                        : "Check-in available anytime today"}
-                                </p>
-                            </div>
-
-                            {/* Logs Section */}
-                            <div>
-                                <h3 className="text-base font-semibold mb-4 text-foreground">Your Logs</h3>
-                                {logs.length === 0 ? (
-                                    <p className="text-muted-foreground text-sm">No logs yet. Check in to start your streak!</p>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {logs.map((log: any, index: number) => (
-                                            <div
-                                                key={log.id}
-                                                onClick={() => handleLogClick(index)}
-                                                className="bg-card rounded-xl p-4 border border-border flex gap-4 cursor-pointer hover:bg-muted transition-colors"
-                                            >
-                                                <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0 border border-border">
-                                                    {log.proof_url ? (
-                                                        <img src={log.proof_url} alt="Proof" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                                            <Camera className="w-6 h-6" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium text-foreground text-sm">{new Date(log.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-                                                    <p className="text-xs text-green-500 mt-1 font-medium">Verified</p>
-                                                    {log.note && <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">{log.note}</p>}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
             </div>
         </AuthGuard>
     );

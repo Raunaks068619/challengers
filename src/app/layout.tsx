@@ -52,7 +52,9 @@ export default function RootLayout({
                 <ThemeSync />
                 <NotificationManager />
                 <div className="pb-20">
-                  {children}
+                  <div className="pb-20">
+                    {children}
+                  </div>
                 </div>
                 <ComponentVisibilityGuard allowedRoutes={['/', '/profile', '/social', '/challenges']}>
                   <BottomNav />

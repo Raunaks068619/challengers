@@ -59,6 +59,13 @@ export const checkMissedLogs = async (userId: string) => {
                     if (startDate > dateStr) continue;
                 }
 
+                // Check if this date is a REST DAY
+                const checkDate = new Date(dateStr);
+                const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 6 = Saturday
+                if (challenge.rest_days && challenge.rest_days.includes(dayOfWeek)) {
+                    continue; // Skip rest days
+                }
+
                 // Check if a log exists for this date
                 const logsRef = collection(db, "daily_logs");
                 const logQuery = query(

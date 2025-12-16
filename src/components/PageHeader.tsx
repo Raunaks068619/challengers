@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronLeft, Bell, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, Bell, MoreHorizontal, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import NotificationPanel from "./NotificationPanel";
+import UnreadMessagesBadge from "./UnreadMessagesBadge";
 
 interface OptionItem {
     title: string;
@@ -20,6 +21,8 @@ interface PageHeaderProps {
     backbuttonAction?: string; // Route to navigate to, or empty for router.back()
     showNotificationComponent?: boolean;
     showOptionButton?: OptionItem[];
+    rightContent?: React.ReactNode;
+    leftContent?: React.ReactNode;
     className?: string;
 }
 
@@ -29,6 +32,8 @@ export default function PageHeader({
     backbuttonAction = "",
     showNotificationComponent = false,
     showOptionButton = [],
+    rightContent,
+    leftContent,
     className
 }: PageHeaderProps) {
     const router = useRouter();
@@ -58,28 +63,34 @@ export default function PageHeader({
     return (
         <>
             <header className={cn("flex items-center justify-between mb-4", className)}>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
                     {backbutton && (
                         <button
                             onClick={handleBack}
-                            className="p-2 -ml-2 rounded-full hover:bg-muted transition-colors text-foreground"
+                            className="-ml-2 rounded-full hover:bg-muted transition-colors text-foreground"
                         >
                             <ChevronLeft className="w-6 h-6" />
                         </button>
                     )}
-                    <h1 className="text-xl font-bold text-foreground">{title}</h1>
+                    {leftContent ? (
+                        leftContent
+                    ) : (
+                        <h1 className={`text-${backbutton ? "l" : "xl"} font-bold text-foreground`}>{title}</h1>
+                    )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
+                    {rightContent}
                     {showNotificationComponent && (
-                        <button
-                            onClick={() => setShowNotifications(true)}
-                            className="p-2 rounded-full hover:bg-muted transition-colors relative text-foreground"
-                        >
-                            <Bell className="w-6 h-6" />
-                            {/* Optional: Add a red dot if there are unread notifications */}
-                            {/* <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-background"></span> */}
-                        </button>
+                        <>
+                            <UnreadMessagesBadge />
+                            {/* <button
+                                onClick={() => setShowNotifications(true)}
+                                className="p-2 rounded-full hover:bg-muted transition-colors relative text-foreground"
+                            >
+                                <Bell className="w-6 h-5" />
+                            </button> */}
+                        </>
                     )}
 
                     {showOptionButton && showOptionButton.length > 0 && (

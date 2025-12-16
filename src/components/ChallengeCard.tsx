@@ -1,7 +1,7 @@
 "use client";
 
 import { Challenge } from "@/types";
-import { Check, Clock, MapPin, Users, X } from "lucide-react";
+import { Check, Clock, MapPin, Users, X, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface ChallengeCardProps {
@@ -35,7 +35,7 @@ export default function ChallengeCard({ challenge, logs, userId }: ChallengeCard
 
 
     return (
-        <Link href={`/challenges/${challenge.id}`} className="block bg-card rounded-3xl overflow-hidden shadow-sm border border-border hover:shadow-md transition-shadow">
+        <Link href={`/challenges/${challenge.id}`} className="group block bg-card rounded-3xl overflow-hidden shadow-sm border border-border hover:shadow-md hover:border-primary/50 transition-all duration-300 active:scale-[0.98]">
             {/* Banner */}
             {/* <div className="h-25 bg-muted relative">
                 {challenge.banner_url ? (
@@ -48,17 +48,22 @@ export default function ChallengeCard({ challenge, logs, userId }: ChallengeCard
             </div> */}
 
             {/* Content */}
-            <div className="p-5">
+            <div className="p-5 relative">
                 {/* Title & Icon */}
-                <div className="flex items-start gap-4 mb-4">
-                    <div className="w-8 h-8 rounded-2xl bg-muted flex items-center justify-center flex-shrink-0 border border-border">
+                <div className="flex items-start gap-4 mb-4 pr-6">
+                    <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center flex-shrink-0 border border-border/50">
                         {/* Placeholder Icon if no specific icon field */}
-                        <span className="text-xl">🔥</span>
+                        <span className="text-2xl">🔥</span>
                     </div>
                     <div>
-                        <h3 className="font-bold text-base text-card-foreground leading-tight">{challenge.title}</h3>
-                        <p className="text-muted-foreground text-xs mt-1 line-clamp-1">{challenge.description}</p>
+                        <h3 className="font-bold text-lg text-card-foreground leading-tight">{challenge.title}</h3>
+                        <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{challenge.description}</p>
                     </div>
+                </div>
+
+                {/* Navigation Arrow */}
+                <div className="absolute top-5 right-5 text-muted-foreground/50 group-hover:text-primary transition-colors">
+                    <ChevronRight className="w-5 h-5" />
                 </div>
 
                 {/* Consistency Tracker */}

@@ -5,8 +5,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useGetActiveChallengesQuery } from "@/lib/features/api/apiSlice";
 import { toast } from "sonner";
 
+import useFcmToken from "@/hooks/useFcmToken";
+
 export default function NotificationManager() {
     const { user } = useAuth();
+    const { token, notificationPermission } = useFcmToken();
     const { data: challenges = [] } = useGetActiveChallengesQuery(user?.uid || '', {
         skip: !user?.uid,
         pollingInterval: 60000, // Poll every minute to keep data fresh

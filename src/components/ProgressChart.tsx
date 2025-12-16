@@ -156,7 +156,7 @@ export default function ProgressChart({ data }: ProgressChartProps) {
                                         interval={'preserveStartEnd'}
                                     />
                                     <YAxis
-                                        dataKey="name"
+                                        dataKey="date"
                                         type="category"
                                         axisLine={false}
                                         tickLine={false}
@@ -172,7 +172,7 @@ export default function ProgressChart({ data }: ProgressChartProps) {
                                                     fontSize={12}
                                                     transform="rotate(90)"
                                                 >
-                                                    {payload.value}
+                                                    {filteredData[payload.index]?.name}
                                                 </text>
                                             </g>
                                         )}
@@ -181,11 +181,21 @@ export default function ProgressChart({ data }: ProgressChartProps) {
                             ) : (
                                 <>
                                     <XAxis
-                                        dataKey="name"
+                                        dataKey="date"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#71717a', fontSize: 12 }}
-                                        dy={10}
+                                        tick={({ x, y, payload }) => (
+                                            <text
+                                                x={x}
+                                                y={y}
+                                                dy={10}
+                                                textAnchor="middle"
+                                                fill="#71717a"
+                                                fontSize={12}
+                                            >
+                                                {filteredData[payload.index]?.name}
+                                            </text>
+                                        )}
                                         interval={'preserveStartEnd'}
                                     />
                                     <YAxis
@@ -221,7 +231,7 @@ export default function ProgressChart({ data }: ProgressChartProps) {
 
                 {/* Tabs */}
                 <div className={`${isFull ? 'mt-2' : 'mt-4'} flex justify-center`}>
-                    <div className={`bg-muted/50 ${isFull ? 'py-5 px-1':' p-2'} rounded-xl flex gap-1`}>
+                    <div className={`bg-muted/50 ${isFull ? 'py-5 px-1' : ' p-2'} rounded-xl flex gap-1`}>
                         {(['week', 'month', 'all'] as const).map((r) => (
                             <button
                                 key={r}

@@ -105,3 +105,18 @@ Data is denormalized across collections for performance.
     *   **Why?**
         *   `profiles`: Allows fast rendering of the global dashboard chart without querying every single past challenge.
         *   `challenge_participants`: Allows fast rendering of challenge-specific leaderboards and comparison charts without filtering a massive global history.
+
+## 6. Theme & UI Logic
+
+### Theme Persistence
+*   **Storage:** Theme preference (`'light' | 'dark' | 'system'`) is stored in the `profiles` collection under the `theme` field.
+*   **Synchronization:**
+    *   **Initial Load:** The app checks the DB preference. If it differs from the local `next-themes` state, it updates the local state to match the DB.
+    *   **User Change:** When the user toggles the theme, the new value is saved to the DB (debounced to prevent excessive writes).
+    *   **Conflict Resolution:** A `lastDbTheme` ref tracks the last value synced from the DB to prevent local changes from being overwritten by background refetches.
+
+### UI Components
+*   **Challenge Cards:**
+    *   Designed for high affordance with hover effects (border highlight, scale).
+    *   Includes a visual consistency tracker (checkmarks/crosses) derived from `points_history` and `daily_logs`.
+    *   Uses a "traffic light" system for status: Green (Completed), Red (Missed), Dashed (Pending), Gray (Rest/Future).
