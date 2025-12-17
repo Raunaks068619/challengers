@@ -288,10 +288,25 @@ export default function CheckInPage() {
         if (!challenge.id || !user.uid) return;
 
         try {
+            // Upload image to Firebase Storage
+            const { storage } = await import("@/lib/firebase");
+            const { ref, uploadString, getDownloadURL } = await import("firebase/storage");
+
+            const timestamp = Date.now();
+            const storageRef = ref(storage, `check-ins/${challenge.id}/${user.uid}/${timestamp}.jpg`);
+
+            // Show uploading toast
+            const uploadToast = toast.loading("Uploading proof...");
+
+            await uploadString(storageRef, imgSrc, 'data_url');
+            const downloadURL = await getDownloadURL(storageRef);
+
+            toast.dismiss(uploadToast);
+
             await performCheckIn({
                 challengeId: challenge.id,
                 userId: user.uid,
-                imgSrc,
+                imgSrc: downloadURL, // Send the Storage URL, not base64
                 location,
                 note
             }).unwrap();
@@ -300,7 +315,8 @@ export default function CheckInPage() {
             toast.success("Check-in verified!");
         } catch (error: any) {
             console.error(error);
-            toast.error("Failed to check in: " + error.message);
+            const errorMessage = typeof error === 'string' ? error : error?.message || "Unknown error";
+            toast.error("Failed to check in: " + errorMessage);
         }
     };
 

@@ -42,33 +42,49 @@ export async function GET(req: NextRequest) {
 
             // Determine Start Date (Max of Joined Date or Challenge Start Date)
             let startDate = new Date(p.created_at);
+            startDate.setHours(0, 0, 0, 0);
+
             if (challenge?.start_date) {
                 const challengeStart = new Date(challenge.start_date);
-                if (challengeStart > startDate) {
-                    startDate = challengeStart;
-                }
+                // challengeStart is usually UTC 00:00 from YYYY-MM-DD parsing
+                // Adjust for local timezone consistency if needed, but usually YYYY-MM-DD is safe
+                // Actually, let's just rely on string comparison or normalized dates
+                // If we use the existing logic's startDate, it was:
+                // let startDate = new Date(p.created_at);
+                // ...
             }
 
-            // Generate array of dates to check from startDate to yesterday
+            // SIMPLIFIED LOGIC: Only check yesterday
             const datesToCheck: string[] = [];
-            const iterDate = new Date(startDate);
-            iterDate.setHours(0, 0, 0, 0); // Normalize
 
-            // Iterate until yesterday
-            while (iterDate <= yesterday) {
-                datesToCheck.push(iterDate.toLocaleDateString('en-CA'));
-                iterDate.setDate(iterDate.getDate() + 1);
+            // Ensure yesterday is within the valid range for this user
+            // 1. Check if yesterday >= User Join Date (normalized)
+            const userJoinDate = new Date(p.created_at);
+            userJoinDate.setHours(0, 0, 0, 0);
+
+            // 2. Check if yesterday >= Challenge Start Date
+            let isAfterStart = true;
+            if (challenge?.start_date) {
+                const challengeStart = new Date(challenge.start_date);
+                // Fix: Parse YYYY-MM-DD explicitly to avoid timezone shifts if needed, 
+                // but new Date('YYYY-MM-DD') is UTC. 
+                // yesterday is local time derived. 
+                // Let's compare strings YYYY-MM-DD to be safe and simple.
+                if (yesterdayStr < challenge.start_date) isAfterStart = false;
             }
 
-            // Also check TODAY if time window passed
-            if (challenge?.time_window_end) {
-                const [endHour, endMinute] = challenge.time_window_end.split(':').map(Number);
-                const windowEnd = new Date();
-                windowEnd.setHours(endHour, endMinute, 0, 0);
+            // 3. Check if yesterday <= Challenge End Date
+            let isBeforeEnd = true;
+            if (challenge?.end_date) {
+                if (yesterdayStr > challenge.end_date) isBeforeEnd = false;
+            }
 
-                if (now > windowEnd) {
-                    datesToCheck.push(todayStr);
-                }
+            // 4. Check if yesterday >= User Join Date (string comparison)
+            const userJoinDateStr = userJoinDate.toLocaleDateString('en-CA');
+            const isAfterJoin = yesterdayStr >= userJoinDateStr;
+
+            if (isAfterStart && isBeforeEnd && isAfterJoin) {
+                datesToCheck.push(yesterdayStr);
             }
 
             for (const dateStr of datesToCheck) {
@@ -77,6 +93,14 @@ export async function GET(req: NextRequest) {
                 const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 6 = Saturday
                 if (challenge?.rest_days && challenge.rest_days.includes(dayOfWeek)) {
                     continue; // Skip rest days
+                }
+
+                // Check if we already have a history entry for this date (Idempotency Check)
+                // This prevents double deduction if daily_logs are missing but points were already deducted
+                const alreadyProcessed = p.points_history?.some((h: any) => h.date === dateStr);
+                if (alreadyProcessed) {
+                    console.log(`Skipping ${dateStr} for user ${userId} - already in history`);
+                    continue;
                 }
 
                 // Check if a log exists for this date (completed OR missed)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { FieldPath } from "firebase-admin/firestore";
 
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
@@ -18,31 +19,60 @@ export async function GET(req: NextRequest) {
 
         if (!challengeIds.length) return NextResponse.json([]);
 
-        // 2. Get challenges
-        const challenges: any[] = [];
-        for (const cid of challengeIds) {
-            const cRef = adminDb.collection("challenges").doc(cid);
-            const cSnap = await cRef.get();
-
-            const data = cSnap.data();
-            if (cSnap.exists && data?.status === 'active') {
-                // Get participant count
-                const countSnap = await adminDb.collection("challenge_participants")
-                    .where("challenge_id", "==", cid)
-                    .count()
-                    .get();
-
-                challenges.push({
-                    ...data,
-                    id: cSnap.id,
-                    participants_count: countSnap.data().count,
-                    participant: pSnap.docs.find(d => d.data().challenge_id === cid)?.data()
-                });
-            }
+        // 2. Batch fetch challenges
+        const chunks = [];
+        for (let i = 0; i < challengeIds.length; i += 10) {
+            chunks.push(challengeIds.slice(i, i + 10));
         }
 
-        return NextResponse.json(challenges);
+        const activeChallenges: any[] = [];
+        const activeChallengeIds: string[] = [];
+
+        for (const chunk of chunks) {
+            const cSnap = await adminDb.collection("challenges")
+                .where(FieldPath.documentId(), "in", chunk)
+                .get();
+
+            cSnap.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.status === 'active') {
+                    activeChallenges.push({ ...data, id: doc.id });
+                    activeChallengeIds.push(doc.id);
+                }
+            });
+        }
+
+        if (activeChallenges.length === 0) return NextResponse.json([]);
+
+        // 3. Batch fetch participant counts
+        const counts: Record<string, number> = {};
+
+        const countChunks = [];
+        for (let i = 0; i < activeChallengeIds.length; i += 10) {
+            countChunks.push(activeChallengeIds.slice(i, i + 10));
+        }
+
+        for (const chunk of countChunks) {
+            const cpSnap = await adminDb.collection("challenge_participants")
+                .where("challenge_id", "in", chunk)
+                .get();
+
+            cpSnap.docs.forEach(doc => {
+                const cid = doc.data().challenge_id;
+                counts[cid] = (counts[cid] || 0) + 1;
+            });
+        }
+
+        // 4. Merge data
+        const result = activeChallenges.map(c => ({
+            ...c,
+            participants_count: counts[c.id] || 0,
+            participant: pSnap.docs.find(d => d.data().challenge_id === c.id)?.data()
+        }));
+
+        return NextResponse.json(result);
     } catch (error: any) {
+        console.error("Error fetching active challenges:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

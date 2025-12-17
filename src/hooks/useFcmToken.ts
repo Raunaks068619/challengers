@@ -25,16 +25,17 @@ export default function useFcmToken() {
                     setNotificationPermission(permission);
 
                     if (permission === "granted") {
-                        // Explicitly register service worker to ensure it exists even if unregistered
-                        let serviceWorkerRegistration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-                        if (!serviceWorkerRegistration) {
-                            serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                        }
+                        console.log("[useFcmToken] Permission granted, registering SW...");
+                        // Register and wait for ready to ensure active SW
+                        await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                        const serviceWorkerRegistration = await navigator.serviceWorker.ready;
+                        console.log("[useFcmToken] SW ready:", serviceWorkerRegistration);
 
                         const currentToken = await getToken(messaging, {
                             vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
                             serviceWorkerRegistration
                         });
+                        console.log("[useFcmToken] Token retrieved:", currentToken);
 
                         if (currentToken) {
                             setToken(currentToken);
@@ -45,7 +46,7 @@ export default function useFcmToken() {
                     }
                 }
             } catch (error) {
-                console.error("An error occurred while retrieving token:", error);
+                console.error("[useFcmToken] Error:", error);
             }
         };
 

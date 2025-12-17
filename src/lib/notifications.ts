@@ -16,6 +16,20 @@ export const requestNotificationPermission = async () => {
                 console.warn("VAPID key is missing. Notifications will not work.");
                 return null;
             }
+
+            // Ensure Service Worker is registered and ready
+            if ("serviceWorker" in navigator) {
+                await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+                const serviceWorkerRegistration = await navigator.serviceWorker.ready;
+
+                const token = await getToken(messaging, {
+                    vapidKey: vapidKey,
+                    serviceWorkerRegistration
+                });
+                return token;
+            }
+
+            // Fallback if no SW support (unlikely for Push)
             const token = await getToken(messaging, {
                 vapidKey: vapidKey
             });

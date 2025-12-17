@@ -35,15 +35,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
             // 3. Fetch profiles for names
             const userIds = Array.from(new Set(participants.map(p => p.user_id)));
-            const userMap: Record<string, string> = {};
+            const userMap: Record<string, { name: string, photo_url?: string }> = {};
 
             for (const uid of userIds) {
                 const uSnap = await adminDb.collection("profiles").doc(uid).get();
                 if (uSnap.exists) {
                     const data = uSnap.data();
-                    userMap[uid] = data?.display_name || data?.email?.split('@')[0] || "User";
+                    userMap[uid] = {
+                        name: data?.display_name || data?.email?.split('@')[0] || "User",
+                        photo_url: data?.photo_url
+                    };
                 } else {
-                    userMap[uid] = "Unknown";
+                    userMap[uid] = { name: "Unknown" };
                 }
             }
 
@@ -134,7 +137,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
             return NextResponse.json({
                 history: finalHistory,
-                users: userIds.map(uid => ({ id: uid, name: userMap[uid] })),
+                users: userIds.map(uid => ({
+                    id: uid,
+                    name: userMap[uid].name,
+                    photo_url: userMap[uid].photo_url
+                })),
             });
 
         } else {

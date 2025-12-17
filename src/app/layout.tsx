@@ -7,6 +7,8 @@ import StoreProvider from "./StoreProvider";
 import { Suspense } from "react";
 import BottomNav from "@/common/BottomNav";
 import ComponentVisibilityGuard from "@/common/ComponentVisibilityGuard";
+import InstallPrompt from "@/components/InstallPrompt";
+import ForegroundNotificationListener from "@/components/ForegroundNotificationListener";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const poppins = Poppins({

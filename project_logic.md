@@ -120,3 +120,37 @@ Data is denormalized across collections for performance.
     *   Designed for high affordance with hover effects (border highlight, scale).
     *   Includes a visual consistency tracker (checkmarks/crosses) derived from `points_history` and `daily_logs`.
     *   Uses a "traffic light" system for status: Green (Completed), Red (Missed), Dashed (Pending), Gray (Rest/Future).
+
+## 7. Chat System Logic
+
+### Real-time Messaging
+*   **Architecture:** Uses Firestore `onSnapshot` listeners for real-time updates.
+*   **Structure:** Messages are stored in a subcollection: `conversations/{conversationId}/messages`.
+*   **Pagination:**
+    *   **Initial Load:** Fetches the latest 50 messages (descending order).
+    *   **Infinite Scroll:** Uses an `IntersectionObserver` sentinel at the top of the chat. When visible, it triggers a fetch for the next batch of 50 messages using `startAfter` the last loaded document.
+    *   **Scroll Anchoring:** Preserves the user's scroll position when older messages are loaded by adjusting `scrollTop` based on the change in `scrollHeight`.
+
+### Notifications
+*   **FCM Integration:** Uses Firebase Cloud Messaging for push notifications.
+*   **Token Management:**
+    *   Tokens are requested on the Profile page.
+    *   Stored in the `profiles` collection under `fcm_tokens` (array).
+    *   **Service Worker:** A custom `firebase-messaging-sw.js` handles background notifications.
+    *   **Foreground:** A `ForegroundNotificationListener` component handles messages when the app is open, displaying them as toasts.
+
+## 8. Performance Optimization Logic
+
+### Dashboard Caching
+*   **Problem:** N+1 query performance issues when fetching challenges and their participant counts.
+*   **Solution:**
+    *   **Batch Fetching:** The `/api/challenges/active` and `/api/participants` endpoints now use Firestore `in` queries to fetch all related documents in parallel batches (chunked by 10).
+    *   **In-Memory Aggregation:** Participant counts are calculated in memory after fetching all participants in a single batch, rather than querying for each challenge individually.
+    *   **Client-Side Caching:** RTK Query is configured with `keepUnusedDataFor: 300` (5 minutes) to prevent unnecessary network requests when navigating between tabs.
+
+### Chat Virtualization
+*   **Problem:** Rendering large chat histories caused DOM lag.
+*   **Solution:**
+    *   **Memoization:** The message list rendering is memoized using `useMemo` to prevent re-rendering all message bubbles on every keystroke.
+    *   **Lazy Loading:** Only a limited subset of messages is loaded initially.
+

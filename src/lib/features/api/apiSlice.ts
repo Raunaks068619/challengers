@@ -19,6 +19,7 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Profile'],
+            keepUnusedDataFor: 300, // 5 minutes
         }),
         updateProfile: builder.mutation<null, { userId: string; updates: Partial<UserProfile> }>({
             queryFn: async ({ userId, updates }) => {
@@ -48,6 +49,7 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Challenge'],
+            keepUnusedDataFor: 300,
         }),
         getChallenge: builder.query<Challenge & { participants_count: number }, string>({
             queryFn: async (challengeId) => {
@@ -203,6 +205,7 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Log', 'Participant'],
+            keepUnusedDataFor: 300,
         }),
         getAllParticipants: builder.query<UserProfile[], string>({
             queryFn: async (userId) => {
@@ -216,6 +219,7 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Participant'],
+            keepUnusedDataFor: 300,
         }),
         getChallengePointsHistory: builder.query<any[], string>({
             queryFn: async (challengeId) => {

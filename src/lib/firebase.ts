@@ -12,10 +12,13 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+import { getStorage } from "firebase/storage";
+
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
 // Initialize Messaging (only on client side and if supported)
@@ -26,4 +29,4 @@ export const getMessagingInstance = async () => {
     return null;
 };
 
-export { app, auth, db, googleProvider };
+export { app, auth, db, storage, googleProvider };

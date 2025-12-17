@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "next-themes";
-import { Moon, Sun, LogOut } from "lucide-react";
+import { Moon, Sun, LogOut, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -250,29 +250,65 @@ export default function ProfilePage() {
                                 Generate AI Avatar
                             </button>
                         </div>
-                        <button
-                            onClick={async () => {
-                                const token = await requestNotificationPermission();
-                                if (token && user) {
-                                    try {
-                                        await updateDoc(doc(db, "profiles", user.uid), {
-                                            fcm_tokens: arrayUnion(token)
-                                        });
-                                        toast.success("Notifications enabled!");
-                                    } catch (error) {
-                                        console.error("Error saving token:", error);
-                                        toast.error("Failed to enable notifications");
+                        <div className="flex flex-col gap-2 items-center mt-2">
+                            <button
+                                onClick={async () => {
+                                    const token = await requestNotificationPermission();
+                                    if (token && user) {
+                                        try {
+                                            await updateDoc(doc(db, "profiles", user.uid), {
+                                                fcm_tokens: arrayUnion(token)
+                                            });
+                                            toast.success("Notifications enabled!");
+                                        } catch (error) {
+                                            console.error("Error saving token:", error);
+                                            toast.error("Failed to enable notifications");
+                                        }
                                     }
-                                } else if (!token) {
-                                    // Permission denied or error, usually handled by helper logs or browser
-                                    // But we can show a generic error if needed, though the helper handles some logs.
-                                    // If permission was denied, the browser won't prompt again easily.
-                                }
-                            }}
-                            className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
-                        >
-                            Enable Notifications
-                        </button>
+                                }}
+                                className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                            >
+                                Enable Notifications
+                            </button>
+
+                            <button
+                                onClick={async () => {
+                                    const toastId = toast.loading("Sending test notification...");
+                                    try {
+                                        console.log("[Profile] Requesting notification permission...");
+                                        const token = await requestNotificationPermission();
+                                        console.log("[Profile] Token retrieved:", token);
+
+                                        if (!token) {
+                                            console.error("[Profile] Notification permission denied or token null");
+                                            toast.error("Notification permission denied", { id: toastId });
+                                            return;
+                                        }
+
+                                        console.log("[Profile] Sending request to /api/test-notification");
+                                        const res = await fetch("/api/test-notification", {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ token })
+                                        });
+
+                                        const data = await res.json();
+                                        console.log("[Profile] API Response:", data);
+
+                                        if (!res.ok) throw new Error(data.error || "Failed to send");
+
+                                        toast.success("Notification sent! Check your status bar.", { id: toastId });
+                                    } catch (error) {
+                                        console.error("[Profile] Error:", error);
+                                        toast.error("Failed to send test notification", { id: toastId });
+                                    }
+                                }}
+                                className="text-[10px] flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"
+                            >
+                                <Bell className="w-3 h-3" />
+                                Test Notification
+                            </button>
+                        </div>
 
                         <div className="w-full max-w-xs mt-4">
                             <InstallPrompt />
