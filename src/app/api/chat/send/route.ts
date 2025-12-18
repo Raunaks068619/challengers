@@ -3,8 +3,12 @@ import { adminAuth, adminDb, adminMessaging } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(request: Request) {
+    let text, conversationId, senderId;
     try {
-        const { text, conversationId, senderId } = await request.json();
+        const body = await request.json();
+        text = body.text;
+        conversationId = body.conversationId;
+        senderId = body.senderId;
 
         if (!text || !conversationId || !senderId) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -31,6 +35,7 @@ export async function POST(request: Request) {
         const conversationDoc = await conversationRef.get();
 
         if (!conversationDoc.exists) {
+            console.error(`[Chat API] Conversation not found: ${conversationId}`);
             return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
         }
 
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
             if (pId !== senderId) {
                 unreadUpdates[`unreadCounts.${pId}`] = FieldValue.increment(1);
 
-                // Get user's FCM tokens
+                // Get user's FCM tokens (saved in 'users' collection by useFcmToken hook)
                 const userDoc = await adminDb.collection("users").doc(pId).get();
                 const userData = userDoc.data();
                 if (userData?.fcmTokens && Array.isArray(userData.fcmTokens)) {
@@ -64,11 +69,11 @@ export async function POST(request: Request) {
             ...unreadUpdates
         });
 
-        // Fetch sender details for notification
-        const senderDoc = await adminDb.collection("users").doc(senderId).get();
+        // Fetch sender details for notification from 'profiles' collection
+        const senderDoc = await adminDb.collection("profiles").doc(senderId).get();
         const senderData = senderDoc.data();
-        const senderName = senderData?.displayName || "New Message";
-        const senderImage = senderData?.photoURL || "/icons/icon-192x192.png";
+        const senderName = senderData?.display_name || "New Message";
+        const senderImage = senderData?.photo_url || "/icons/icon-192x192.png";
 
         // 3. Send FCM Notifications
         if (fcmTokensToSend.length > 0) {
@@ -93,15 +98,19 @@ export async function POST(request: Request) {
                     }
                 });
             } catch (fcmError) {
-                console.error("Error sending FCM:", fcmError);
+                console.error("[Chat API] Error sending FCM:", fcmError);
                 // Continue execution, don't fail the request just because notification failed
             }
         }
 
         return NextResponse.json({ success: true, messageId: messageRef.id });
 
-    } catch (error) {
-        console.error("Error in /api/chat/send:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error: any) {
+        console.error("[Chat API] Error in /api/chat/send:", {
+            error: error.message,
+            stack: error.stack,
+            body: { text: text?.substring(0, 20), conversationId, senderId }
+        });
+        return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
     }
 }

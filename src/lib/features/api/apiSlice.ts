@@ -205,7 +205,6 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Log', 'Participant'],
-            keepUnusedDataFor: 300,
         }),
         getAllParticipants: builder.query<UserProfile[], string>({
             queryFn: async (userId) => {
@@ -219,7 +218,6 @@ export const apiSlice = createApi({
                 }
             },
             providesTags: ['Participant'],
-            keepUnusedDataFor: 300,
         }),
         getChallengePointsHistory: builder.query<any[], string>({
             queryFn: async (challengeId) => {

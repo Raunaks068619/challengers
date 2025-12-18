@@ -17,8 +17,8 @@ export default function GroupChatCard({ challengeId, participants }: GroupChatCa
     return (
         <Link href={`/challenges/${challengeId}/chat`} className="block mb-6">
             <div className="bg-card rounded-2xl p-4 border border-border flex items-center justify-between hover:bg-muted/50 transition-colors">
-                <div className="flex flex-col gap-3">
-                    <span className="text-base font-medium">Group chat</span>
+                <div className="flex flex-row gap-3 items-center">
+                    
                     <div className="flex items-center">
                         {displayParticipants.map((p, i) => (
                             <div
@@ -40,6 +40,7 @@ export default function GroupChatCard({ challengeId, participants }: GroupChatCa
                             </div>
                         )}
                     </div>
+                    <span className="text-sm font-medium">Group chat</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </div>

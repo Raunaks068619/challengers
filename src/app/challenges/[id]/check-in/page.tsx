@@ -288,25 +288,10 @@ export default function CheckInPage() {
         if (!challenge.id || !user.uid) return;
 
         try {
-            // Upload image to Firebase Storage
-            const { storage } = await import("@/lib/firebase");
-            const { ref, uploadString, getDownloadURL } = await import("firebase/storage");
-
-            const timestamp = Date.now();
-            const storageRef = ref(storage, `check-ins/${challenge.id}/${user.uid}/${timestamp}.jpg`);
-
-            // Show uploading toast
-            const uploadToast = toast.loading("Uploading proof...");
-
-            await uploadString(storageRef, imgSrc, 'data_url');
-            const downloadURL = await getDownloadURL(storageRef);
-
-            toast.dismiss(uploadToast);
-
             await performCheckIn({
                 challengeId: challenge.id,
                 userId: user.uid,
-                imgSrc: downloadURL, // Send the Storage URL, not base64
+                imgSrc,
                 location,
                 note
             }).unwrap();
@@ -315,8 +300,7 @@ export default function CheckInPage() {
             toast.success("Check-in verified!");
         } catch (error: any) {
             console.error(error);
-            const errorMessage = typeof error === 'string' ? error : error?.message || "Unknown error";
-            toast.error("Failed to check in: " + errorMessage);
+            toast.error("Failed to check in: " + error.message);
         }
     };
 
@@ -326,7 +310,7 @@ export default function CheckInPage() {
     if (status === "already_checked_in") {
         return (
             <AuthGuard>
-                <div className="min-h-screen bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
+                <div className="h-[100dvh] overflow-hidden bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
                         <CheckCircle className="w-8 h-8 text-green-500" />
                     </div>
@@ -344,7 +328,7 @@ export default function CheckInPage() {
     if (!hasStarted && challenge) {
         return (
             <AuthGuard>
-                <div className="min-h-screen bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
+                <div className="h-[100dvh] overflow-hidden bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mb-4">
                         <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -366,7 +350,7 @@ export default function CheckInPage() {
     if (status === "success") {
         return (
             <AuthGuard>
-                <div className="min-h-screen bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
+                <div className="h-[100dvh] overflow-hidden bg-background text-foreground p-4 flex flex-col items-center justify-center text-center">
                     <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
                         <Sparkles className="w-8 h-8 text-primary" />
                     </div>

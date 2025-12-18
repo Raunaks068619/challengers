@@ -142,7 +142,7 @@ export default function ProfilePage() {
             const fileName = `avatars/${user.uid}-${Math.random().toString(36).substring(7)}.png`;
 
             const { error: uploadError } = await supabase.storage
-                .from('challengers')
+                .from('avatars')
                 .upload(fileName, file, {
                     upsert: true,
                     contentType: 'image/png'
@@ -151,7 +151,7 @@ export default function ProfilePage() {
             if (uploadError) throw uploadError;
 
             const { data: { publicUrl } } = supabase.storage
-                .from('challengers')
+                .from('avatars')
                 .getPublicUrl(fileName);
 
             // Update Form Data

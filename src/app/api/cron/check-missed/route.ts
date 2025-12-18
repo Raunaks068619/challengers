@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
 
                     // B. Deduct Points & Reset Streak
                     const penalty = 100;
-                    const newPoints = (p.current_points || 0) - penalty;
+                    const newPoints = p.current_points - penalty;
 
                     // Update local participant object to reflect deduction for next iteration if needed
                     // (Though usually we just update DB. But if we process multiple days for same user, we should be careful about race conditions on 'current_points' if we read it once.
@@ -148,11 +148,11 @@ export async function GET(req: NextRequest) {
                     if (profileSnap.exists) {
                         const profile = profileSnap.data();
                         await profileRef.update({
-                            total_lost: (profile?.total_lost || 0) + penalty,
-                            current_points: (profile?.current_points || 0) - penalty,
+                            total_lost: (profile?.total_lost) + penalty,
+                            current_points: (profile?.current_points) - penalty,
                             points_history: FieldValue.arrayUnion({
                                 date: dateStr,
-                                points: (profile?.current_points || 0) - penalty,
+                                points: (profile?.current_points) - penalty,
                                 taskStatus: 'missed'
                             })
                         });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
     try {
@@ -26,15 +27,40 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Challenge hasn't started yet" }, { status: 400 });
         }
 
-        // 1. Create Log
-        // Note: Image upload happens on client for now (Supabase), so we just receive the URL (imgSrc)
+        // 1. Upload Image to Supabase Storage
+        let proofUrl = imgSrc;
+
+        // If imgSrc is a base64 string, upload it
+        if (imgSrc.startsWith('data:image')) {
+
+            const base64Data = imgSrc.split(',')[1];
+            const buffer = Buffer.from(base64Data, 'base64');
+            const timestamp = Date.now();
+            const fileName = `checkins/${challengeId}/${userId}-${Date.now()}.jpg`;
+            const { error: uploadError } = await supabase.storage
+                .from('challengers')
+                .upload(fileName, buffer, {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('challengers')
+                .getPublicUrl(fileName);
+
+            proofUrl = publicUrl;
+        }
+
+        // 2. Create Log
         const logData = {
             challenge_id: challengeId,
             user_id: userId,
             date: today,
             status: "completed",
             created_at: new Date().toISOString(),
-            proof_url: imgSrc,
+            proof_url: proofUrl,
             lat: location?.lat || null,
             lng: location?.lng || null,
             verified: true,
@@ -43,7 +69,7 @@ export async function POST(req: NextRequest) {
 
         await adminDb.collection("daily_logs").add(logData);
 
-        // 2. Update Streak & Points
+        // 3. Update Streak & Points
         const participantsRef = adminDb.collection("challenge_participants");
         const q = participantsRef
             .where("challenge_id", "==", challengeId)

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { FieldPath } from "firebase-admin/firestore";
 
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
@@ -19,18 +18,12 @@ export async function GET(req: NextRequest) {
 
         if (!challengeIds.length) return NextResponse.json([]);
 
-        // 2. Get all participants for these challenges (Batch)
+        // 2. Get all participants for these challenges
         const participantUserIds = new Set<string>();
 
-        // Chunk challenge IDs to avoid 'in' limit (10)
-        const chunks = [];
-        for (let i = 0; i < challengeIds.length; i += 10) {
-            chunks.push(challengeIds.slice(i, i + 10));
-        }
-
-        for (const chunk of chunks) {
+        for (const cid of challengeIds) {
             const cpSnap = await adminDb.collection("challenge_participants")
-                .where("challenge_id", "in", chunk)
+                .where("challenge_id", "==", cid)
                 .get();
 
             cpSnap.docs.forEach(doc => {
@@ -43,28 +36,18 @@ export async function GET(req: NextRequest) {
 
         if (participantUserIds.size === 0) return NextResponse.json([]);
 
-        // 3. Fetch user profiles (Batch)
+        // 3. Fetch user profiles
         const profiles: any[] = [];
-        const userIds = Array.from(participantUserIds);
-
-        const userChunks = [];
-        for (let i = 0; i < userIds.length; i += 10) {
-            userChunks.push(userIds.slice(i, i + 10));
-        }
-
-        for (const chunk of userChunks) {
-            const userSnap = await adminDb.collection("profiles")
-                .where(FieldPath.documentId(), "in", chunk)
-                .get();
-
-            userSnap.docs.forEach(doc => {
-                profiles.push({ ...doc.data(), id: doc.id });
-            });
+        for (const pid of Array.from(participantUserIds)) {
+            const userDoc = await adminDb.collection("profiles").doc(pid).get();
+            if (userDoc.exists) {
+                profiles.push({ ...userDoc.data(), id: userDoc.id });
+            }
         }
 
         return NextResponse.json(profiles);
     } catch (error: any) {
-        console.error("Error fetching participants:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

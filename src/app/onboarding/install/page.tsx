@@ -36,7 +36,7 @@ export default function InstallOnboardingPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-[100dvh] overflow-hidden bg-background text-foreground flex flex-col items-center justify-center p-6 text-center">
             <div className="max-w-md w-full space-y-8">
                 <div className="space-y-4">
                     <h1 className="text-3xl font-bold tracking-tight">Install Challengers</h1>

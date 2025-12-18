@@ -213,7 +213,8 @@ export default function ChatWindow({ conversationId, currentUserId, participants
             });
 
             if (!response.ok) {
-                console.error("Failed to send message");
+                const errorData = await response.json().catch(() => ({}));
+                console.error("Failed to send message:", errorData);
             }
         } catch (error) {
             console.error("Error sending message:", error);

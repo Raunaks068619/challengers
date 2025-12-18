@@ -349,13 +349,6 @@ export default function ChallengeDetailsPage() {
                         </div>
                     )}
 
-                    {/* Group Chat Card */}
-                    {participantData && (
-                        <GroupChatCard
-                            challengeId={challenge.id || ''}
-                            participants={chatParticipants}
-                        />
-                    )}
 
                     {/* My Stats (If Participant) */}
                     {participantData && (
@@ -396,7 +389,7 @@ export default function ChallengeDetailsPage() {
                             <div className="space-y-3">
                                 <Link
                                     href={`/challenges/${challenge.id}/check-in`}
-                                    className="block w-full py-4 bg-green-600 rounded-xl font-bold text-base text-white text-center hover:bg-green-500 shadow-lg shadow-green-500/20 transition-colors"
+                                    className="block w-full py-4 bg-primary rounded-xl font-bold text-base text-white text-center hover:bg-green-500 shadow-lg shadow-green-500/20 transition-colors"
                                 >
                                     Check In Now
                                 </Link>
@@ -406,6 +399,13 @@ export default function ChallengeDetailsPage() {
                                         : "Check-in available anytime today"}
                                 </p>
                             </div>
+                            {/* Group Chat Card */}
+                            {participantData && (
+                                <GroupChatCard
+                                    challengeId={challenge.id || ''}
+                                    participants={chatParticipants}
+                                />
+                            )}
 
                             {/* Logs Section */}
                             <div>
