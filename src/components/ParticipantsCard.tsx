@@ -8,9 +8,16 @@ import Avatar from "@/components/Avatar";
 interface ParticipantsCardProps {
     participants: UserProfile[];
     className?: string;
+    isLoading?: boolean;
 }
 
-export default function ParticipantsCard({ participants, className }: ParticipantsCardProps) {
+import Skeleton from "./Skeleton";
+
+export default function ParticipantsCard({ participants, className, isLoading }: ParticipantsCardProps) {
+    if (isLoading) {
+        return <Skeleton className={cn("h-32 rounded-2xl", className)} />;
+    }
+
     const displayParticipants = participants.slice(0, 4);
     const count = participants.length;
 

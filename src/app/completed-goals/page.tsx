@@ -7,6 +7,7 @@ import { CheckCircle, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { Challenge } from "@/types";
+import Loader from "@/components/Loader";
 
 export default function CompletedGoalsPage() {
     const { user } = useAuth();
@@ -51,9 +52,7 @@ export default function CompletedGoalsPage() {
 
                 <main className="space-y-6">
                     {isLoading ? (
-                        <div className="flex justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        </div>
+                        <Loader fullscreen={false} className="h-8 w-8" />
                     ) : activeChallengesToday.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                             <p>No goals scheduled for today.</p>

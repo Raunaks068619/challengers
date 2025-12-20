@@ -3,16 +3,33 @@ import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, increment, limit, startAfter, getDocs, QueryDocumentSnapshot, where } from "firebase/firestore";
 import { Send, Camera, Mic, Image as ImageIcon, Smile } from "lucide-react";
 import MessageBubble from "./MessageBubble";
+import Skeleton from "@/components/Skeleton";
+
+const MessageSkeleton = ({ isOwn }: { isOwn: boolean }) => (
+    <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+        <div className={`flex items-end gap-2 max-w-[70%] ${isOwn ? "flex-row-reverse" : ""}`}>
+            {!isOwn && <Skeleton className="w-6 h-6 rounded-full mb-1" />}
+            <div className={`p-3 rounded-2xl w-48 h-16 ${isOwn
+                ? "bg-primary/20 rounded-br-sm"
+                : "bg-muted rounded-bl-sm"
+                }`}>
+                <Skeleton className="h-3 w-3/4 rounded mb-2" />
+                <Skeleton className="h-3 w-1/2 rounded" />
+            </div>
+        </div>
+    </div>
+);
 
 interface ChatWindowProps {
     conversationId: string;
     currentUserId: string;
     participants?: string[];
+    isLoading?: boolean;
 }
 
 const MESSAGES_PER_PAGE = 50;
 
-export default function ChatWindow({ conversationId, currentUserId, participants = [] }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, currentUserId, participants = [], isLoading = false }: ChatWindowProps) {
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState("");
     const [lastLoadedDoc, setLastLoadedDoc] = useState<QueryDocumentSnapshot<any> | null>(null);
@@ -232,7 +249,19 @@ export default function ChatWindow({ conversationId, currentUserId, participants
                     {isLoadingMore && <span className="text-xs text-muted-foreground">Loading history...</span>}
                 </div>
 
-                {messageList}
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <MessageSkeleton isOwn={false} />
+                        <MessageSkeleton isOwn={true} />
+                        <MessageSkeleton isOwn={false} />
+                        <MessageSkeleton isOwn={true} />
+                        <MessageSkeleton isOwn={false} />
+                    </div>
+                ) : (
+                    <>
+                        {messageList}
+                    </>
+                )}
                 <div ref={messagesEndRef} />
             </div>
 

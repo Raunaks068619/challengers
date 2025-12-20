@@ -10,6 +10,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
+import Loader from "@/components/Loader";
 
 export default function ChallengesPage() {
     const { user } = useAuth();
@@ -69,8 +70,16 @@ export default function ChallengesPage() {
 
                 {
                     isLoading ? (
-                        <div className="flex justify-center py-12" >
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <div className="space-y-6">
+                            {[...Array(3)].map((_, i) => (
+                                <ChallengeCard
+                                    key={i}
+                                    isLoading={true}
+                                    challenge={{} as any}
+                                    logs={[]}
+                                    userId=""
+                                />
+                            ))}
                         </div>
                     ) : (
                         <div className="space-y-6">
@@ -119,9 +128,14 @@ export default function ChallengesPage() {
                                     <button
                                         onClick={handleJoinByCode}
                                         disabled={joining || joinCode.length < 6}
-                                        className="flex-1 py-3 bg-primary rounded-xl font-medium hover:opacity-90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                                        className="flex-1 py-3 bg-primary rounded-xl font-medium hover:opacity-90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
                                     >
-                                        {joining ? "Joining..." : "Join"}
+                                        {joining ? (
+                                            <>
+                                                <Loader size={16} className="text-primary-foreground p-0" />
+                                                <span>Joining...</span>
+                                            </>
+                                        ) : "Join"}
                                     </button>
                                 </div>
                             </div>

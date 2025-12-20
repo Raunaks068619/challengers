@@ -7,15 +7,19 @@ import PageHeader from "@/components/PageHeader";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Video, Info, User } from "lucide-react";
+import Loader from "@/components/Loader";
+import Skeleton from "@/components/Skeleton";
 
 export default function DMChatPage() {
     const { id } = useParams();
     const { user } = useAuth();
     const [participant, setParticipant] = useState<any>(null);
     const [participants, setParticipants] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (user && id) {
+            setLoading(true);
             fetch(`/api/chat/conversations?userId=${user.uid}`)
                 .then(res => res.json())
                 .then(data => {
@@ -29,10 +33,17 @@ export default function DMChatPage() {
                                 .then(users => {
                                     const p = users.find((u: any) => u.id === otherId);
                                     setParticipant(p);
-                                });
+                                    setLoading(false);
+                                })
+                                .catch(() => setLoading(false));
+                        } else {
+                            setLoading(false);
                         }
+                    } else {
+                        setLoading(false);
                     }
-                });
+                })
+                .catch(() => setLoading(false));
         }
     }, [user, id]);
 
@@ -46,14 +57,23 @@ export default function DMChatPage() {
                         backbuttonAction="/messages"
                         leftContent={
                             <div className="flex items-center gap-3">
-                                {participant?.photo_url ? (
-                                    <img src={participant.photo_url} alt={participant.display_name} className="w-8 h-8 rounded-full object-cover" />
+                                {loading ? (
+                                    <>
+                                        <Skeleton className="w-8 h-8 rounded-full" />
+                                        <Skeleton className="h-4 w-24 rounded" />
+                                    </>
                                 ) : (
-                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <User className="w-4 h-4" />
-                                    </div>
+                                    <>
+                                        {participant?.photo_url ? (
+                                            <img src={participant.photo_url} alt={participant.display_name} className="w-8 h-8 rounded-full object-cover" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                                <User className="w-4 h-4" />
+                                            </div>
+                                        )}
+                                        <span className="font-semibold text-sm">{participant?.display_name || "Unknown"}</span>
+                                    </>
                                 )}
-                                <span className="font-semibold text-sm">{participant?.display_name || "Loading..."}</span>
                             </div>
                         }
                         rightContent={
@@ -69,6 +89,7 @@ export default function DMChatPage() {
                         conversationId={id as string}
                         currentUserId={user?.uid || ''}
                         participants={participants}
+                        isLoading={loading}
                     />
                 </div>
             </div>

@@ -8,9 +8,35 @@ interface ChallengeCardProps {
     challenge: Challenge & { participants_count?: number };
     logs: any[]; // User's logs for this week
     userId: string;
+    isLoading?: boolean;
 }
 
-export default function ChallengeCard({ challenge, logs, userId }: ChallengeCardProps) {
+import Skeleton from "./Skeleton";
+
+export default function ChallengeCard({ challenge, logs, userId, isLoading }: ChallengeCardProps) {
+    if (isLoading) {
+        return (
+            <div className="bg-card rounded-3xl overflow-hidden shadow-sm border border-border p-5">
+                <div className="flex items-start gap-4 mb-4">
+                    <Skeleton className="w-12 h-12 rounded-full flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-3/4 rounded-md" />
+                        <Skeleton className="h-3 w-full rounded-md" />
+                    </div>
+                </div>
+                <div className="flex justify-between items-center mb-6">
+                    {[...Array(7)].map((_, i) => (
+                        <Skeleton key={i} className="w-8 h-8 rounded-full" />
+                    ))}
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t border-border">
+                    <Skeleton className="h-3 w-24 rounded-md" />
+                    <Skeleton className="h-3 w-24 rounded-md" />
+                </div>
+            </div>
+        );
+    }
+
     // Helper to get week days (Sun-Sat)
     const getWeekDays = () => {
         const today = new Date();

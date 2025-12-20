@@ -11,12 +11,25 @@ import { toast } from "sonner";
 import BackButton from "@/common/BackButton";
 import PageHeader from "@/components/PageHeader";
 import GroupChatCard from "@/components/GroupChatCard";
+import Loader from "@/components/Loader";
 
 import { useGetChallengeQuery, useGetParticipantDataQuery, useJoinChallengeMutation, useGetUserChallengeLogsQuery, useLeaveChallengeMutation, useGetChallengeParticipantsPointsHistoryQuery } from "@/lib/features/api/apiSlice";
 
 import StoryViewer from "@/components/StoryViewer";
 import ShareModal from "@/components/ShareModal";
 import ProgressChart from "@/components/ProgressChart";
+import Skeleton from "@/components/Skeleton";
+
+const SkeletonCard = () => (
+    <div className="bg-card rounded-xl p-4 border border-border flex gap-4">
+        <Skeleton className="w-16 h-16 rounded-lg flex-shrink-0" />
+        <div className="flex-1 space-y-2 py-1">
+            <Skeleton className="h-4 w-3/4 rounded" />
+            <Skeleton className="h-3 w-1/4 rounded" />
+            <Skeleton className="h-3 w-1/2 rounded" />
+        </div>
+    </div>
+);
 
 export default function ChallengeDetailsPage() {
     const { id } = useParams();
@@ -33,13 +46,13 @@ export default function ChallengeDetailsPage() {
         { skip: !id || !user?.uid }
     );
 
-    const { data: logs = [] } = useGetUserChallengeLogsQuery(
+    const { data: logs = [], isLoading: logsLoading } = useGetUserChallengeLogsQuery(
         { challengeId: id as string, userId: user?.uid || '' },
         { skip: !id || !user?.uid }
     );
 
     // Fetch participant comparison data for chart
-    const { data: challengeHistoryData } = useGetChallengeParticipantsPointsHistoryQuery(id as string, {
+    const { data: challengeHistoryData, isLoading: historyLoading } = useGetChallengeParticipantsPointsHistoryQuery(id as string, {
         skip: !id || !participantData
     });
 
@@ -121,34 +134,25 @@ export default function ChallengeDetailsPage() {
         };
     }, [challengeHistoryData]);
 
-    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
-    if (!challenge) return <div className="p-4 text-white">Challenge not found</div>;
+    // if (loading) return <Loader fullscreen={true} />;
+    if (!loading && !challenge) return <div className="p-4 text-white">Challenge not found</div>;
 
-    const startDate = new Date(challenge.start_date);
-    const endDate = new Date(challenge.end_date);
-    const durationDays = Math.max(
+    const isDataLoading = loading || historyLoading;
+
+    const startDate = challenge ? new Date(challenge.start_date) : new Date();
+    const endDate = challenge ? new Date(challenge.end_date) : new Date();
+    const durationDays = challenge ? Math.max(
         1,
         Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-    );
+    ) : 0;
 
     // Mock participants for the card if not available in challenge object yet (assuming it might be there)
     // The API slice for getChallenge should ideally return participants. 
     // If not, we might need to fetch them or use what we have.
     // Based on ChatWindow usage: participants={challenge.participants || []}
     // So challenge.participants exists.
-    const participants = challenge.participants?.map((p: any) => ({
-        id: p, // If it's just IDs, we might need to fetch profiles. 
-        // Wait, ChatWindow takes string[]. GroupChatCard expects objects.
-        // Let's check what challenge.participants actually is.
-        // In ChatWindow: participants={challenge.participants || []}
-        // In GroupChatCard: participants: { id, photo_url, display_name }[]
-        // If challenge.participants is just IDs, we can't show avatars easily without fetching.
-        // However, looking at ChatWindow, it doesn't use participants for avatars, only for logic?
-        // Actually ChatWindow doesn't seem to display participant avatars in the header, it just uses it for... something?
-        // Let's assume for now we pass empty array or minimal data if we don't have full profiles.
-        // BUT, the user wants avatars.
-        // `challengeHistoryData.users` has user info!
-        // We can use that.
+    const participants = challenge?.participants?.map((p: any) => ({
+        id: p,
     })) || [];
 
     // Better: use challengeHistoryData.users if available, as it contains name and photo.
@@ -160,13 +164,15 @@ export default function ChallengeDetailsPage() {
     })) : [];
 
 
+
     return (
         <AuthGuard>
             <div className="min-h-screen bg-background text-foreground p-6 pb-20">
                 <PageHeader
-                    title={challenge.title}
+                    title={challenge?.title || "Challenge"}
                     backbutton={true}
                     backbuttonAction="/challenges"
+                    isLoading={challengeLoading}
                     showOptionButton={[
                         {
                             title: "Details",
@@ -186,19 +192,21 @@ export default function ChallengeDetailsPage() {
                         ...(challenge && user && challenge.creator_id === user.uid ? [{
                             title: "Edit Challenge",
                             icon: <Edit className="w-4 h-4" />,
-                            runFunction: () => router.push(`/challenges/${challenge.id}/edit`)
+                            runFunction: () => router.push(`/challenges/${challenge?.id}/edit`)
                         }] : [])
                     ]}
                     className="mb-6"
                 />
 
-                <ShareModal
-                    isOpen={showShareModal}
-                    onClose={() => setShowShareModal(false)}
-                    challengeTitle={challenge.title}
-                    joinCode={challenge.join_code}
-                    url={`${window.location.origin}/challenges/${challenge.id}?auto_join=true`}
-                />
+                {challenge && (
+                    <ShareModal
+                        isOpen={showShareModal}
+                        onClose={() => setShowShareModal(false)}
+                        challengeTitle={challenge?.title || ""}
+                        joinCode={challenge?.join_code || ""}
+                        url={`${window.location.origin}/challenges/${challenge?.id}?auto_join=true`}
+                    />
+                )}
 
                 {/* Details Modal */}
                 {showDetailsModal && (
@@ -215,7 +223,7 @@ export default function ChallengeDetailsPage() {
                             </div>
                             <div className="p-4 overflow-y-auto space-y-4">
                                 {/* Banner */}
-                                {challenge.banner_url && (
+                                {challenge?.banner_url && (
                                     <div className="w-full h-32 rounded-xl overflow-hidden border border-border">
                                         <img src={challenge.banner_url} alt={challenge.title} className="w-full h-full object-cover" />
                                     </div>
@@ -223,7 +231,7 @@ export default function ChallengeDetailsPage() {
 
                                 {/* Description */}
                                 <div>
-                                    <p className="text-muted-foreground text-sm leading-relaxed">{challenge.description}</p>
+                                    <p className="text-muted-foreground text-sm leading-relaxed">{challenge?.description}</p>
                                 </div>
 
                                 {/* Details Grid */}
@@ -234,7 +242,7 @@ export default function ChallengeDetailsPage() {
                                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Start Date</span>
                                         </div>
                                         <p className="font-medium text-foreground">
-                                            {new Date(challenge.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            {challenge ? new Date(challenge.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : "..."}
                                         </p>
                                     </div>
                                     <div className="bg-muted/30 rounded-xl p-3">
@@ -243,7 +251,7 @@ export default function ChallengeDetailsPage() {
                                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">End Date</span>
                                         </div>
                                         <p className="font-medium text-foreground">
-                                            {new Date(challenge.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            {challenge ? new Date(challenge.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : "..."}
                                         </p>
                                     </div>
                                     <div className="bg-muted/30 rounded-xl p-3">
@@ -252,7 +260,7 @@ export default function ChallengeDetailsPage() {
                                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Time Window</span>
                                         </div>
                                         <p className="font-medium text-foreground">
-                                            {challenge.time_window_start && challenge.time_window_end
+                                            {challenge?.time_window_start && challenge?.time_window_end
                                                 ? `${challenge.time_window_start} - ${challenge.time_window_end}`
                                                 : "Anytime"}
                                         </p>
@@ -262,15 +270,15 @@ export default function ChallengeDetailsPage() {
                                             <Users className="w-4 h-4 text-primary" />
                                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Participants</span>
                                         </div>
-                                        <p className="font-medium text-foreground">{challenge.participants_count || 0}</p>
+                                        <p className="font-medium text-foreground">{challenge?.participants_count || 0}</p>
                                     </div>
                                     <div className="bg-muted/30 rounded-xl p-3">
                                         <div className="flex items-center gap-2 mb-1">
                                             <MapPin className="w-4 h-4 text-primary" />
                                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Location</span>
                                         </div>
-                                        <p className={`font-medium ${challenge.requires_location ? 'text-green-500' : 'text-muted-foreground'}`}>
-                                            {challenge.requires_location ? 'Required' : 'Anywhere'}
+                                        <p className={`font-medium ${challenge?.requires_location ? 'text-green-500' : 'text-muted-foreground'}`}>
+                                            {challenge?.requires_location ? 'Required' : 'Anywhere'}
                                         </p>
                                     </div>
                                     <div className="bg-muted/30 rounded-xl p-3">
@@ -283,14 +291,14 @@ export default function ChallengeDetailsPage() {
                                 </div>
 
                                 {/* Rest Days */}
-                                {challenge.rest_days && challenge.rest_days.length > 0 && (
+                                {challenge?.rest_days && challenge.rest_days.length > 0 && (
                                     <div className="bg-muted/30 rounded-xl p-3">
                                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-2">Rest Days</p>
                                         <div className="flex flex-wrap gap-2">
                                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
                                                 <span
                                                     key={day}
-                                                    className={`px-2 py-1 rounded text-xs font-medium ${challenge.rest_days?.includes(i)
+                                                    className={`px-2 py-1 rounded text-xs font-medium ${challenge?.rest_days?.includes(i)
                                                         ? 'bg-primary/20 text-primary'
                                                         : 'bg-muted text-muted-foreground'
                                                         }`}
@@ -341,76 +349,101 @@ export default function ChallengeDetailsPage() {
                     initialIndex={selectedLogIndex}
                 />
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {/* Banner Image */}
-                    {challenge.banner_url && (
+                    {challenge?.banner_url ? (
                         <div className="w-full h-48 rounded-2xl overflow-hidden mb-6 border border-border">
                             <img src={challenge.banner_url} alt={challenge.title} className="w-full h-full object-cover" />
                         </div>
-                    )}
+                    ) : null}
 
 
                     {/* My Stats (If Participant) */}
-                    {participantData && (
-                        <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
-                                    <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center mb-2">
-                                        <Flame className="w-4 h-4 text-orange-500" />
-                                    </div>
-                                    <p className="text-xl font-bold text-foreground">{participantData.streak_current}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Day Streak</p>
-                                </div>
-                                <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
-                                    <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center mb-2">
-                                        <Trophy className="w-4 h-4 text-yellow-500" />
-                                    </div>
-                                    <p className="text-xl font-bold text-foreground">{participantData.current_points}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Points</p>
-                                </div>
+                    {participantLoading ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
+                                <Skeleton className="w-8 h-8 rounded-full mb-2" />
+                                <Skeleton className="h-6 w-12 mb-1" />
+                                <Skeleton className="h-3 w-16" />
                             </div>
+                            <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
+                                <Skeleton className="w-8 h-8 rounded-full mb-2" />
+                                <Skeleton className="h-6 w-12 mb-1" />
+                                <Skeleton className="h-3 w-16" />
+                            </div>
+                        </div>
+                    ) : participantData ? (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
+                                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center mb-2">
+                                    <Flame className="w-4 h-4 text-orange-500" />
+                                </div>
+                                <p className="text-xl font-bold text-foreground">{participantData?.streak_current || 0}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Day Streak</p>
+                            </div>
+                            <div className="bg-card rounded-2xl p-4 border border-border flex flex-col items-center justify-center text-center">
+                                <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center mb-2">
+                                    <Trophy className="w-4 h-4 text-yellow-500" />
+                                </div>
+                                <p className="text-xl font-bold text-foreground">{participantData?.current_points || 0}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Points</p>
+                            </div>
+                        </div>
+                    ) : null}
 
-                            {/* Progress Chart - Participant Comparison */}
-                            {chartData && <ProgressChart data={chartData} />}
-                        </>
+                    {/* Progress Chart - Participant Comparison (If Participant or Loading) */}
+                    {(participantData || participantLoading) && (
+                        <ProgressChart data={chartData || { mode: 'challenge', data: [], users: [] }} isLoading={historyLoading || participantLoading} />
                     )}
 
                     {/* Actions */}
-                    {!participantData ? (
+                    {participantLoading ? (
+                        <Skeleton className="w-full h-14 rounded-xl" />
+                    ) : !participantData ? (
                         <button
                             onClick={handleJoin}
                             disabled={joining}
-                            className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 transition-opacity"
+                            className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 transition-opacity flex items-center justify-center gap-2"
                         >
-                            {joining ? "Joining..." : "Join Challenge (+500 pts)"}
+                            {joining ? (
+                                <>
+                                    <Loader size={18} className="text-primary-foreground p-0" />
+                                    <span>Joining...</span>
+                                </>
+                            ) : "Join Challenge (+500 pts)"}
                         </button>
                     ) : (
                         <div className="space-y-6">
                             <div className="space-y-3">
                                 <Link
-                                    href={`/challenges/${challenge.id}/check-in`}
-                                    className="block w-full py-4 bg-primary rounded-xl font-bold text-base text-white text-center hover:bg-green-500 shadow-lg shadow-green-500/20 transition-colors"
+                                    href={`/challenges/${challenge?.id}/check-in`}
+                                    className="block w-full py-4 bg-primary rounded-xl font-bold text-base text-white text-center hover:bg-green-500 transition-colors"
                                 >
                                     Check In Now
                                 </Link>
                                 <p className="text-center text-xs text-muted-foreground">
-                                    {challenge.time_window_start && challenge.time_window_end
+                                    {challenge?.time_window_start && challenge?.time_window_end
                                         ? `Check-in available between ${challenge.time_window_start} and ${challenge.time_window_end}`
                                         : "Check-in available anytime today"}
                                 </p>
                             </div>
                             {/* Group Chat Card */}
-                            {participantData && (
-                                <GroupChatCard
-                                    challengeId={challenge.id || ''}
-                                    participants={chatParticipants}
-                                />
-                            )}
+                            <GroupChatCard
+                                challengeId={challenge?.id || ''}
+                                participants={chatParticipants}
+                                isLoading={historyLoading}
+                            />
 
                             {/* Logs Section */}
                             <div>
                                 <h3 className="text-base font-semibold mb-4 text-foreground">Your Logs</h3>
-                                {logs.length === 0 ? (
+                                {logsLoading ? (
+                                    <div className="space-y-4">
+                                        <SkeletonCard />
+                                        <SkeletonCard />
+                                        <SkeletonCard />
+                                    </div>
+                                ) : logs.length === 0 ? (
                                     <p className="text-muted-foreground text-sm">No logs yet. Check in to start your streak!</p>
                                 ) : (
                                     <div className="space-y-4">

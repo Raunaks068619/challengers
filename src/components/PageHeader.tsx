@@ -7,6 +7,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import NotificationPanel from "./NotificationPanel";
 import UnreadMessagesBadge from "./UnreadMessagesBadge";
+import Skeleton from "./Skeleton";
 
 interface OptionItem {
     title: string;
@@ -24,6 +25,7 @@ interface PageHeaderProps {
     rightContent?: React.ReactNode;
     leftContent?: React.ReactNode;
     className?: string;
+    isLoading?: boolean;
 }
 
 export default function PageHeader({
@@ -34,7 +36,8 @@ export default function PageHeader({
     showOptionButton = [],
     rightContent,
     leftContent,
-    className
+    className,
+    isLoading = false
 }: PageHeaderProps) {
     const router = useRouter();
     const [showOptions, setShowOptions] = useState(false);
@@ -74,6 +77,8 @@ export default function PageHeader({
                     )}
                     {leftContent ? (
                         leftContent
+                    ) : isLoading ? (
+                        <Skeleton className="h-8 w-48 rounded-lg" />
                     ) : (
                         <h1 className={`text-${backbutton ? "l" : "xl"} font-bold text-foreground`}>{title}</h1>
                     )}

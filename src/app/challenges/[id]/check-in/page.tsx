@@ -11,6 +11,7 @@ import Webcam from "react-webcam";
 import { MapPin, RefreshCw, CheckCircle, ChevronLeft, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { useGetChallengeQuery, usePerformCheckInMutation } from "@/lib/features/api/apiSlice";
+import Loader from "@/components/Loader";
 
 // Haversine Formula for distance in meters
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -54,35 +55,7 @@ export default function CheckInPage() {
     const [checkingLog, setCheckingLog] = useState(true);
     const [note, setNote] = useState("");
 
-    useEffect(() => {
-        const checkLog = async () => {
-            if (!id || !user) return;
-            // Check if already checked in today
-            const today = new Date().toISOString().split('T')[0];
-
-            const q = query(
-                collection(db, "daily_logs"),
-                where("challenge_id", "==", id),
-                where("user_id", "==", user.uid),
-                where("date", "==", today)
-            );
-            const snap = await getDocs(q);
-
-            if (!snap.empty) {
-                setStatus("already_checked_in");
-            }
-            setCheckingLog(false);
-        };
-        checkLog();
-    }, [id, user]);
-
-    const loading = challengeLoading || checkingLog;
-
-    // Check if challenge has started
-    const today = new Date().toLocaleDateString('en-CA');
-    const hasStarted = challenge ? today >= challenge.start_date : true;
-
-    const getLocation = () => {
+    const getLocation = useCallback(() => {
         setLocationError("");
         if (!navigator.geolocation) {
             setLocationError("Geolocation is not supported");
@@ -121,9 +94,6 @@ export default function CheckInPage() {
 
                     if (minDist !== Infinity) {
                         setDistance(minDist);
-                        // Store the radius of the closest location for validation
-                        // We can store it in a ref or state if needed, but for now we'll just use the logic in handleCheckIn
-                        // Actually, let's update the distance state to reflect the closest valid location
                     }
                 }
                 toast.success("Location verified!", { id: toastId });
@@ -135,7 +105,48 @@ export default function CheckInPage() {
             },
             { enableHighAccuracy: true }
         );
-    };
+    }, [challenge]);
+
+    useEffect(() => {
+        const checkLog = async () => {
+            if (!id || !user) return;
+            // Check if already checked in today
+            const today = new Date().toISOString().split('T')[0];
+
+            const q = query(
+                collection(db, "daily_logs"),
+                where("challenge_id", "==", id),
+                where("user_id", "==", user.uid),
+                where("date", "==", today)
+            );
+            const snap = await getDocs(q);
+
+            if (!snap.empty) {
+                setStatus("already_checked_in");
+            }
+            setCheckingLog(false);
+        };
+        checkLog();
+    }, [id, user]);
+
+    // Auto-check for location permission
+    useEffect(() => {
+        if (challenge?.requires_location && !location && !locationError) {
+            if (navigator.permissions && navigator.permissions.query) {
+                navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((result) => {
+                    if (result.state === 'granted') {
+                        getLocation();
+                    }
+                });
+            }
+        }
+    }, [challenge, location, locationError, getLocation]);
+
+    const loading = challengeLoading || checkingLog;
+
+    // Check if challenge has started
+    const today = new Date().toLocaleDateString('en-CA');
+    const hasStarted = challenge ? today >= challenge.start_date.split('T')[0] : true;
 
     const [countdown, setCountdown] = useState<number | null>(null);
 
@@ -304,7 +315,7 @@ export default function CheckInPage() {
         }
     };
 
-    if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white"><Loader2 className="animate-spin" /></div>;
+    if (loading) return <Loader fullscreen={true} />;
     if (!challenge) return <div className="p-4 text-white">Challenge not found</div>;
 
     if (status === "already_checked_in") {
@@ -337,7 +348,7 @@ export default function CheckInPage() {
                     <h1 className="text-xl font-bold mb-2">Challenge Hasn't Started</h1>
                     <p className="text-muted-foreground mb-2 text-sm">This challenge starts on:</p>
                     <p className="text-primary font-bold text-lg mb-6">
-                        {new Date(challenge.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                        {new Date(challenge.start_date.includes('T') ? challenge.start_date : challenge.start_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                     </p>
                     <Link href={`/challenges/${id}`} className="px-6 py-3 bg-muted rounded-xl font-medium hover:bg-muted/80 text-foreground transition-colors">
                         Back to Challenge
@@ -458,6 +469,9 @@ export default function CheckInPage() {
                                         </button>
                                     )}
                                     {locationError && <p className="text-xs text-destructive mt-1">{locationError}</p>}
+                                    <p className="text-[10px] text-muted-foreground mt-2 leading-tight">
+                                        Tip: Set permission to "Always Allow" in your browser settings to skip this prompt next time.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -477,9 +491,14 @@ export default function CheckInPage() {
                     <button
                         onClick={handleCheckIn}
                         disabled={submitting || !hasStarted || (challenge.requires_location && (!location || (distance !== null && distance > 5000))) || !imgSrc}
-                        className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all"
+                        className="w-full py-4 bg-primary rounded-xl font-bold text-base text-primary-foreground shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition-all flex items-center justify-center gap-2"
                     >
-                        {submitting ? "Verifying..." : !hasStarted ? "Challenge Not Started" : "Complete Check-in"}
+                        {submitting ? (
+                            <>
+                                <Loader size={18} className="text-primary-foreground p-0" />
+                                <span>Verifying...</span>
+                            </>
+                        ) : !hasStarted ? "Challenge Not Started" : "Complete Check-in"}
                     </button>
                 </div>
             </div >
@@ -495,10 +514,4 @@ function Sparkles({ className }: { className?: string }) {
     )
 }
 
-function Loader2({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-    )
-}
+

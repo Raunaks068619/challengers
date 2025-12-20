@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Maximize2, Minimize2 } from "lucide-react";
+import Skeleton from "./Skeleton";
 
 interface ChartUser {
     id: string;
@@ -16,6 +17,7 @@ interface ProgressChartProps {
         data: any[];
         users: ChartUser[];
     };
+    isLoading?: boolean;
 }
 
 const CustomTooltip = ({ active, payload, label, userMap, isFull }: any) => {
@@ -45,31 +47,217 @@ const CustomTooltip = ({ active, payload, label, userMap, isFull }: any) => {
     return null;
 };
 
-export default function ProgressChart({ data }: ProgressChartProps) {
-    const { mode, data: chartData, users } = data;
+interface ChartContentProps {
+    isFull?: boolean;
+    subtitle: string;
+    isFullscreen: boolean;
+    setIsFullscreen: (val: boolean) => void;
+    filteredData: any[];
+    keys: string[];
+    colors: string[];
+    userMap: Record<string, string>;
+    range: 'week' | 'month' | 'all';
+    handleRangeChange: (r: 'week' | 'month' | 'all') => void;
+}
+
+const ChartContent = ({
+    isFull = false,
+    subtitle,
+    isFullscreen,
+    setIsFullscreen,
+    filteredData,
+    keys,
+    colors,
+    userMap,
+    range,
+    handleRangeChange
+}: ChartContentProps) => {
+    const isVertical = isFull;
+
+    return (
+        <div className={`w-full h-full flex flex-col ${isFull ? 'p-4' : ''}`}>
+            <div className={`${isFull ? 'mb-2' : 'mb-4'} flex justify-between items-start`}>
+                <div>
+                    <h3 className={`${isFull ? 'text-xl' : 'text-lg'} font-bold text-foreground`}>Activity Overview</h3>
+                    <p className={`${isFull ? 'text-sm' : 'text-sm'} text-muted-foreground`}>{subtitle}</p>
+                </div>
+                <button
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className="p-2 hover:bg-muted rounded-full transition-colors text-foreground"
+                >
+                    {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                </button>
+            </div>
+
+            <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                        layout={isVertical ? 'vertical' : 'horizontal'}
+                        data={filteredData}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                        <defs>
+                            {keys.map((key, index) => (
+                                <linearGradient key={key} id={`color-${index}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={colors[index % colors.length]} stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor={colors[index % colors.length]} stopOpacity={0} />
+                                </linearGradient>
+                            ))}
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+
+                        {isVertical ? (
+                            <>
+                                <XAxis
+                                    type="number"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={({ x, y, payload }) => (
+                                        <g transform={`translate(${x},${y})`}>
+                                            <text
+                                                x={0}
+                                                y={0}
+                                                dx={12}
+                                                textAnchor="middle"
+                                                fill="#71717a"
+                                                fontSize={12}
+                                                transform="rotate(90)"
+                                            >
+                                                {payload.value}
+                                            </text>
+                                        </g>
+                                    )}
+                                    dy={10}
+                                    interval={'preserveStartEnd'}
+                                />
+                                <YAxis
+                                    dataKey="date"
+                                    type="category"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    width={40}
+                                    tick={({ x, y, payload }) => (
+                                        <g transform={`translate(${x},${y})`}>
+                                            <text
+                                                x={0}
+                                                y={0}
+                                                dy={4}
+                                                textAnchor="middle"
+                                                fill="#71717a"
+                                                fontSize={12}
+                                                transform="rotate(90)"
+                                            >
+                                                {filteredData[payload.index]?.name}
+                                            </text>
+                                        </g>
+                                    )}
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <XAxis
+                                    dataKey="date"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={({ x, y, payload }) => (
+                                        <text
+                                            x={x}
+                                            y={y}
+                                            dy={10}
+                                            textAnchor="middle"
+                                            fill="#71717a"
+                                            fontSize={12}
+                                        >
+                                            {filteredData[payload.index]?.name}
+                                        </text>
+                                    )}
+                                    interval={'preserveStartEnd'}
+                                />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: '#71717a', fontSize: 12 }}
+                                />
+                            </>
+                        )}
+
+                        <Tooltip
+                            content={<CustomTooltip userMap={userMap} isFull={isFull} />}
+                            cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                            position={isVertical ? undefined : { y: 30 }}
+                        />
+
+                        {keys.map((key, index) => (
+                            <Area
+                                key={key}
+                                type="monotone"
+                                dataKey={key}
+                                name={userMap[key] || key}
+                                stroke={colors[index % colors.length]}
+                                strokeWidth={3}
+                                fillOpacity={1}
+                                fill={`url(#color-${index})`}
+                                connectNulls={false}
+                            />
+                        ))}
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Tabs */}
+            <div className={`${isFull ? 'mt-2' : 'mt-4'} flex justify-center`}>
+                <div className={`bg-muted/50 ${isFull ? 'py-5 px-1' : ' p-2'} rounded-xl flex gap-1`}>
+                    {(['week', 'month', 'all'] as const).map((r) => (
+                        <button
+                            key={r}
+                            onClick={() => handleRangeChange(r)}
+                            className={` ${isFull ? 'rotate-90 px-2 py-1' : 'py-2 px-4'} rounded-lg text-xs font-medium transition-all ${range === r
+                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                        >
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default function ProgressChart({ data, isLoading }: ProgressChartProps) {
     const [range, setRange] = useState<'week' | 'month' | 'all'>('week');
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
-    if (!chartData || chartData.length === 0) return null;
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const { mode, data: chartData, users } = data;
 
     // Create a map from user_id to display_name
     const userMap = useMemo(() => {
         const map: Record<string, string> = {};
-        users.forEach(u => { map[u.id] = u.name; });
+        if (users) {
+            users.forEach(u => { map[u.id] = u.name; });
+        }
         return map;
     }, [users]);
 
     // Extract data keys (user_ids or display_names depending on mode)
     const keys = useMemo(() => {
+        if (!chartData || chartData.length === 0) return [];
         if (mode === 'global') {
             return Object.keys(chartData[0]).filter(k => k !== 'name' && k !== 'date');
         } else {
-            return users.map(u => u.id);
+            return users?.map(u => u.id) || [];
         }
     }, [chartData, mode, users]);
 
     // Filter data based on range
     const filteredData = useMemo(() => {
+        if (!chartData) return [];
         const end = chartData.length;
         if (range === 'week') return chartData.slice(Math.max(0, end - 7));
         if (range === 'month') return chartData.slice(Math.max(0, end - 30));
@@ -81,7 +269,7 @@ export default function ProgressChart({ data }: ProgressChartProps) {
 
     const subtitle = mode === 'global'
         ? 'Your points history'
-        : `Comparing ${users.length} participants`;
+        : `Comparing ${users?.length || 0} participants`;
 
     const handleRangeChange = (r: 'week' | 'month' | 'all') => {
         setRange(r);
@@ -90,178 +278,50 @@ export default function ProgressChart({ data }: ProgressChartProps) {
         }
     };
 
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const ChartContent = ({ isFull = false }) => {
-        const isVertical = isFull;
-
+    if (isLoading) {
         return (
-            <div className={`w-full h-full flex flex-col ${isFull ? 'p-4' : ''}`}>
-                <div className={`${isFull ? 'mb-2' : 'mb-4'} flex justify-between items-start`}>
+            <div className="w-full h-[400px] bg-card rounded-2xl p-6 border border-border shadow-sm">
+                <div className="flex justify-between items-start mb-4">
                     <div>
-                        <h3 className={`${isFull ? 'text-xl' : 'text-lg'} font-bold text-foreground`}>Activity Overview</h3>
-                        <p className={`${isFull ? 'text-sm' : 'text-sm'} text-muted-foreground`}>{subtitle}</p>
+                        <Skeleton className="h-6 w-32 mb-2" />
+                        <Skeleton className="h-4 w-48" />
                     </div>
-                    <button
-                        onClick={() => setIsFullscreen(!isFullscreen)}
-                        className="p-2 hover:bg-muted rounded-full transition-colors text-foreground"
-                    >
-                        {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-                    </button>
+                    <Skeleton className="w-8 h-8 rounded-full" />
                 </div>
-
-                <div className="flex-1 min-h-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                            layout={isVertical ? 'vertical' : 'horizontal'}
-                            data={filteredData}
-                            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                        >
-                            <defs>
-                                {keys.map((key, index) => (
-                                    <linearGradient key={key} id={`color-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={colors[index % colors.length]} stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor={colors[index % colors.length]} stopOpacity={0} />
-                                    </linearGradient>
-                                ))}
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-
-                            {isVertical ? (
-                                <>
-                                    <XAxis
-                                        type="number"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={({ x, y, payload }) => (
-                                            <g transform={`translate(${x},${y})`}>
-                                                <text
-                                                    x={0}
-                                                    y={0}
-                                                    dx={12}
-                                                    textAnchor="middle"
-                                                    fill="#71717a"
-                                                    fontSize={12}
-                                                    transform="rotate(90)"
-                                                >
-                                                    {payload.value}
-                                                </text>
-                                            </g>
-                                        )}
-                                        dy={10}
-                                        interval={'preserveStartEnd'}
-                                    />
-                                    <YAxis
-                                        dataKey="date"
-                                        type="category"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        width={40}
-                                        tick={({ x, y, payload }) => (
-                                            <g transform={`translate(${x},${y})`}>
-                                                <text
-                                                    x={0}
-                                                    y={0}
-                                                    dy={4}
-                                                    textAnchor="middle"
-                                                    fill="#71717a"
-                                                    fontSize={12}
-                                                    transform="rotate(90)"
-                                                >
-                                                    {filteredData[payload.index]?.name}
-                                                </text>
-                                            </g>
-                                        )}
-                                    />
-                                </>
-                            ) : (
-                                <>
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={({ x, y, payload }) => (
-                                            <text
-                                                x={x}
-                                                y={y}
-                                                dy={10}
-                                                textAnchor="middle"
-                                                fill="#71717a"
-                                                fontSize={12}
-                                            >
-                                                {filteredData[payload.index]?.name}
-                                            </text>
-                                        )}
-                                        interval={'preserveStartEnd'}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: '#71717a', fontSize: 12 }}
-                                    />
-                                </>
-                            )}
-
-                            <Tooltip
-                                content={<CustomTooltip userMap={userMap} isFull={isFull} />}
-                                cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                                position={isVertical ? undefined : { y: 30 }}
-                            />
-
-                            {keys.map((key, index) => (
-                                <Area
-                                    key={key}
-                                    type="monotone"
-                                    dataKey={key}
-                                    name={userMap[key] || key}
-                                    stroke={colors[index % colors.length]}
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill={`url(#color-${index})`}
-                                    connectNulls={false}
-                                />
-                            ))}
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Tabs */}
-                <div className={`${isFull ? 'mt-2' : 'mt-4'} flex justify-center`}>
-                    <div className={`bg-muted/50 ${isFull ? 'py-5 px-1' : ' p-2'} rounded-xl flex gap-1`}>
-                        {(['week', 'month', 'all'] as const).map((r) => (
-                            <button
-                                key={r}
-                                onClick={() => handleRangeChange(r)}
-                                className={` ${isFull ? 'rotate-90 px-2 py-1' : 'py-2 px-4'} rounded-lg text-xs font-medium transition-all ${range === r
-                                    ? 'bg-primary text-primary-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
-                                    }`}
-                            >
-                                {r.charAt(0).toUpperCase() + r.slice(1)}
-                            </button>
-                        ))}
-                    </div>
+                <Skeleton className="w-full h-[230px] rounded-xl" />
+                <div className="mt-4 flex justify-center">
+                    <Skeleton className="h-10 w-48 rounded-xl" />
                 </div>
             </div>
         );
+    }
+
+    if (!chartData || chartData.length === 0) return null;
+
+    const contentProps = {
+        subtitle,
+        isFullscreen,
+        setIsFullscreen,
+        filteredData,
+        keys,
+        colors,
+        userMap,
+        range,
+        handleRangeChange
     };
 
     return (
         <>
             {/* Inline Chart */}
             <div className="w-full h-[400px] bg-card rounded-2xl p-6 border border-border shadow-sm">
-                <ChartContent />
+                <ChartContent {...contentProps} />
             </div>
 
             {/* Fullscreen Overlay */}
             {mounted && isFullscreen && createPortal(
                 <div className="fixed inset-0 z-[200] bg-background flex items-center justify-center overflow-hidden">
                     <div className="w-full h-full bg-background">
-                        <ChartContent isFull={true} />
+                        <ChartContent {...contentProps} isFull={true} />
                     </div>
                 </div>,
                 document.body

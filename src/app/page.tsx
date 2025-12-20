@@ -12,9 +12,12 @@ import { Challenge } from "@/types";
 
 import { Plus, ArrowRight, Users } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
+import Loader from "@/components/Loader";
 import ProgressChart from "@/components/ProgressChart";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Skeleton from "@/components/Skeleton";
+import DashboardSkeleton from "@/components/DashboardSkeleton";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -172,9 +175,7 @@ export default function Dashboard() {
 
         <main className="space-y-8">
           {challengesLoading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
+            <DashboardSkeleton />
           ) : activeChallenges.length === 0 ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center space-y-6 py-12">
@@ -210,38 +211,50 @@ export default function Dashboard() {
                   completed={completedDailyTasks}
                   total={totalDailyTasks}
                   className="w-full"
+                  isLoading={profileLoading || challengesLoading}
                 />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-                    <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Current Points</p>
-                    <p className="text-3xl font-medium text-foreground">{userProfile?.current_points || 0}</p>
-                  </div>
-                  <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-                    <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Lost</p>
-                    <p className="text-3xl font-medium text-foreground">{userProfile?.total_lost || 0}</p>
-                  </div>
+                  {profileLoading || challengesLoading ? (
+                    <>
+                      <Skeleton className="h-24 rounded-2xl" />
+                      <Skeleton className="h-24 rounded-2xl" />
+                      <Skeleton className="h-32 rounded-2xl" />
+                      <Skeleton className="h-32 rounded-2xl" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
+                        <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Current Points</p>
+                        <p className="text-3xl font-medium text-foreground">{userProfile?.current_points || 0}</p>
+                      </div>
+                      <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
+                        <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Lost</p>
+                        <p className="text-3xl font-medium text-foreground">{userProfile?.total_lost || 0}</p>
+                      </div>
 
-                  {/* Active Challenges Card - Clickable */}
-                  <Link href="/challenges" className="bg-card rounded-2xl p-4 border border-border shadow-sm hover:bg-muted/50 transition-colors flex flex-col justify-between">
-                    <div>
-                      <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Active Challenges</p>
-                      <p className="text-3xl font-medium text-foreground">{activeChallenges.length}</p>
-                    </div>
-                    <div className="mt-2 flex items-center text-xs text-primary font-medium">
-                      View All <ArrowRight className="w-3 h-3 ml-1" />
-                    </div>
-                  </Link>
+                      {/* Active Challenges Card - Clickable */}
+                      <Link href="/challenges" className="bg-card rounded-2xl p-4 border border-border shadow-sm hover:bg-muted/50 transition-colors flex flex-col justify-between">
+                        <div>
+                          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1">Active Challenges</p>
+                          <p className="text-3xl font-medium text-foreground">{activeChallenges.length}</p>
+                        </div>
+                        <div className="mt-2 flex items-center text-xs text-primary font-medium">
+                          View All <ArrowRight className="w-3 h-3 ml-1" />
+                        </div>
+                      </Link>
 
-                  {/* Participants Card */}
-                  <ParticipantsCard
-                    participants={participants}
-                    className="col-span-1 h-full"
-                  />
+                      {/* Participants Card */}
+                      <ParticipantsCard
+                        participants={participants}
+                        className="col-span-1 h-full"
+                      />
+                    </>
+                  )}
                 </div>
 
                 {/* Progress Chart */}
-                <ProgressChart data={historyData} />
+                <ProgressChart data={historyData} isLoading={profileLoading} />
               </div>
             </section>
           )}

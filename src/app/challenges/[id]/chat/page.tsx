@@ -6,6 +6,7 @@ import AuthGuard from "@/components/AuthGuard";
 import PageHeader from "@/components/PageHeader";
 import ChatWindow from "@/components/chat/ChatWindow";
 import { useGetChallengeQuery } from "@/lib/features/api/apiSlice";
+import Loader from "@/components/Loader";
 
 export default function ChallengeChatPage() {
     const { id } = useParams();
@@ -16,7 +17,7 @@ export default function ChallengeChatPage() {
         skip: !id,
     });
 
-    if (isLoading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+    if (isLoading) return <Loader fullscreen={true} />;
     if (!challenge) return <div className="p-4 text-white">Challenge not found</div>;
 
     return (

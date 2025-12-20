@@ -3,6 +3,21 @@ import { Users, Search, Camera } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Loader from "@/components/Loader";
+import Skeleton from "@/components/Skeleton";
+
+const ConversationSkeleton = () => (
+    <div className="w-full px-0 pt-4 flex items-center gap-3">
+        <Skeleton className="w-12 h-12 rounded-full flex-shrink-0" />
+        <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex justify-between items-baseline">
+                <Skeleton className="h-4 w-1/3 rounded" />
+                <Skeleton className="h-3 w-8 rounded" />
+            </div>
+            <Skeleton className="h-3 w-2/3 rounded" />
+        </div>
+    </div>
+);
 
 interface Conversation {
     id: string;
@@ -224,7 +239,15 @@ export default function ConversationList({ userId, onSelect, selectedId }: Conve
 
             <div className="flex-1 overflow-y-auto">
                 {loading ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>
+                    <div className="space-y-1">
+                        <ConversationSkeleton />
+                        <ConversationSkeleton />
+                        <ConversationSkeleton />
+                        <ConversationSkeleton />
+                        <ConversationSkeleton />
+                        <ConversationSkeleton />
+                        <ConversationSkeleton />
+                    </div>
                 ) : mergedList.length === 0 ? (
                     <div className="p-8 text-center text-sm text-muted-foreground">
                         No results found.

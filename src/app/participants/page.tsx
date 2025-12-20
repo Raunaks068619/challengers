@@ -9,6 +9,7 @@ import Avatar from "@/components/Avatar";
 import BackButton from "@/common/BackButton";
 import PageHeader from "@/components/PageHeader";
 import { UserProfile } from "@/types";
+import Loader from "@/components/Loader";
 
 export default function ParticipantsPage() {
     const { user } = useAuth();
@@ -23,9 +24,7 @@ export default function ParticipantsPage() {
 
                 <main className="space-y-6">
                     {isLoading ? (
-                        <div className="flex justify-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        </div>
+                        <Loader fullscreen={false} className="h-8 w-8" />
                     ) : participants.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                             <p>No participants found yet.</p>

@@ -6,6 +6,7 @@ import { collection, getDocs, deleteDoc, doc, setDoc, addDoc } from "firebase/fi
 import { toast } from "sonner";
 import AuthGuard from "@/components/AuthGuard";
 import { Trash2, RefreshCw, Plus, CheckSquare, Square } from "lucide-react";
+import Loader from "@/components/Loader";
 
 
 const COLLECTIONS = [
@@ -214,6 +215,7 @@ export default function AdminPage() {
                             >
                                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                             </button>
+                            {loading && <Loader fullscreen={false} className="h-4 w-4 p-0" />}
                             {selectedIds.size > 0 && (
                                 <button
                                     onClick={handleDelete}

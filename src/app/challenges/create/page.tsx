@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import LocationManager from "@/components/LocationManager";
 
 import { useCreateChallengeMutation } from "@/lib/features/api/apiSlice";
+import Loader from "@/components/Loader";
 import { supabase } from "@/lib/supabase";
 
 export default function CreateChallengePage() {
@@ -126,8 +127,8 @@ export default function CreateChallengePage() {
             const challengeData = {
                 title: preview.title,
                 description: preview.description,
-                start_date: startDate.toISOString(),
-                end_date: endDate.toISOString(),
+                start_date: startDate.toISOString().split('T')[0],
+                end_date: endDate.toISOString().split('T')[0],
                 time_window_start: requiresTimeWindow ? preview.timeWindowStart : null,
                 time_window_end: requiresTimeWindow ? preview.timeWindowEnd : null,
                 requires_location: requiresLocation,
@@ -180,8 +181,8 @@ export default function CreateChallengePage() {
                         >
                             {loading ? (
                                 <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Generating...
+                                    <Loader size={18} className="text-primary-foreground p-0" />
+                                    <span>Generating...</span>
                                 </>
                             ) : (
                                 <>
@@ -360,9 +361,14 @@ export default function CreateChallengePage() {
                         <button
                             onClick={handleCreate}
                             disabled={creating}
-                            className="w-full py-4 bg-green-600 rounded-xl font-bold text-base text-white hover:bg-green-500 transition-all shadow-lg shadow-green-500/20"
+                            className="w-full py-4 bg-green-600 rounded-xl font-bold text-base text-white hover:bg-green-500 transition-all shadow-lg shadow-green-500/20 flex items-center justify-center gap-2"
                         >
-                            {creating ? "Creating..." : "Confirm & Create"}
+                            {creating ? (
+                                <>
+                                    <Loader size={18} className="text-white p-0" />
+                                    <span>Creating...</span>
+                                </>
+                            ) : "Confirm & Create"}
                         </button>
 
                         <button

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useGetChallengeQuery, useUpdateChallengeMutation } from "@/lib/features/api/apiSlice";
 import LocationManager from "@/components/LocationManager";
 import { Challenge } from "@/types";
+import Loader from "@/components/Loader";
 
 export default function EditChallengePage() {
     const { id } = useParams();
@@ -31,6 +32,14 @@ export default function EditChallengePage() {
     const [requiresLocation, setRequiresLocation] = useState(false);
     const [locations, setLocations] = useState<{ lat: number; lng: number; radius: number; address?: string }[]>([]);
 
+    // Rest Days State
+    const [restDays, setRestDays] = useState<number[]>([]);
+
+    // Time Window State
+    const [requiresTimeWindow, setRequiresTimeWindow] = useState(false);
+    const [timeWindowStart, setTimeWindowStart] = useState("");
+    const [timeWindowEnd, setTimeWindowEnd] = useState("");
+
     // Initialize state from challenge data
     useEffect(() => {
         if (challenge) {
@@ -50,6 +59,11 @@ export default function EditChallengePage() {
                     address: "Primary Location"
                 }]);
             }
+
+            setRestDays(challenge.rest_days || []);
+            setRequiresTimeWindow(!!(challenge.time_window_start || challenge.time_window_end));
+            setTimeWindowStart(challenge.time_window_start || "");
+            setTimeWindowEnd(challenge.time_window_end || "");
         }
     }, [challenge]);
 
@@ -82,6 +96,9 @@ export default function EditChallengePage() {
                 location_lat: requiresLocation && locations.length > 0 ? locations[0].lat : null,
                 location_lng: requiresLocation && locations.length > 0 ? locations[0].lng : null,
                 location_radius: requiresLocation && locations.length > 0 ? locations[0].radius : 100,
+                rest_days: restDays,
+                time_window_start: requiresTimeWindow ? timeWindowStart : null,
+                time_window_end: requiresTimeWindow ? timeWindowEnd : null,
             };
 
             await updateChallenge({ challengeId: id as string, updates }).unwrap();
@@ -94,7 +111,7 @@ export default function EditChallengePage() {
     };
 
     if (loadingChallenge) {
-        return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
+        return <Loader fullscreen={true} />;
     }
 
     return (
@@ -127,6 +144,77 @@ export default function EditChallengePage() {
                                 className="w-full bg-transparent border-b border-border py-2 focus:outline-none focus:border-primary resize-none h-32 text-foreground text-sm transition-colors"
                             />
                         </div>
+                        {/* Time Window */}
+                        <div className="pt-4 ">
+                            <div className="flex items-center justify-between mb-4">
+                                <label className="text-sm font-medium text-foreground">Require Time Window?</label>
+                                <button
+                                    onClick={() => setRequiresTimeWindow(!requiresTimeWindow)}
+                                    className={`w-10 h-5 rounded-full transition-colors relative ${requiresTimeWindow ? 'bg-primary' : 'bg-muted'}`}
+                                >
+                                    <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${requiresTimeWindow ? 'translate-x-5' : ''}`} />
+                                </button>
+                            </div>
+
+                            {requiresTimeWindow && (
+                                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                    <div>
+                                        <label className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Start Time</label>
+                                        <input
+                                            type="time"
+                                            value={timeWindowStart}
+                                            onChange={(e) => setTimeWindowStart(e.target.value)}
+                                            className="w-full bg-transparent border-b border-border py-2 focus:outline-none focus:border-primary text-foreground text-sm transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">End Time</label>
+                                        <input
+                                            type="time"
+                                            value={timeWindowEnd}
+                                            onChange={(e) => setTimeWindowEnd(e.target.value)}
+                                            className="w-full bg-transparent border-b border-border py-2 focus:outline-none focus:border-primary text-foreground text-sm transition-colors"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Challenge Days Selector */}
+                        <div className="space-y-3 py-6 border-t border-border">
+                            <label className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Challenge Days</label>
+                            <div className="flex justify-between gap-2">
+                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => {
+                                    // If it's NOT in restDays, it is ACTIVE (Selected)
+                                    const isActive = !restDays.includes(index);
+                                    return (
+                                        <button
+                                            key={index}
+                                            onClick={() => {
+                                                if (isActive) {
+                                                    // Was active, now making it rest day (add to restDays)
+                                                    setRestDays([...restDays, index]);
+                                                } else {
+                                                    // Was rest day, now making it active (remove from restDays)
+                                                    setRestDays(restDays.filter(d => d !== index));
+                                                }
+                                            }}
+                                            className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${isActive
+                                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-105'
+                                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                                }`}
+                                        >
+                                            {day}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                                Tap to deselect days (rest days).
+                            </p>
+                        </div>
+
+
 
                         <LocationManager
                             requiresLocation={requiresLocation}
@@ -134,6 +222,8 @@ export default function EditChallengePage() {
                             locations={locations}
                             setLocations={setLocations}
                         />
+
+
                     </div>
 
                     <button
@@ -143,13 +233,13 @@ export default function EditChallengePage() {
                     >
                         {updating ? (
                             <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                Saving...
+                                <Loader size={18} className="text-primary-foreground p-0" />
+                                <span>Saving...</span>
                             </>
                         ) : (
                             <>
                                 <Save className="w-5 h-5" />
-                                Save Changes
+                                <span>Save Changes</span>
                             </>
                         )}
                     </button>

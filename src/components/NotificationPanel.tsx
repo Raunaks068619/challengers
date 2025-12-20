@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getNotifications, markAllRead, Notification } from "@/app/actions/notifications";
 import { useAuth } from "@/context/AuthContext";
+import Loader from "@/components/Loader";
 
 interface NotificationPanelProps {
     isOpen: boolean;
@@ -67,7 +68,9 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
 
                         <div className="p-4 space-y-3 overflow-y-auto h-[calc(100vh-64px)]">
                             {loading ? (
-                                <div className="text-center text-muted-foreground py-8">Loading...</div>
+                                <div className="flex justify-center py-8">
+                                    <Loader fullscreen={false} size={24} />
+                                </div>
                             ) : notifications.length === 0 ? (
                                 <div className="text-center text-muted-foreground py-8">No new notifications</div>
                             ) : (

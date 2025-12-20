@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Loader from "./Loader";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, userProfile, loading, logout } = useAuth();
@@ -22,18 +23,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, router]);
 
-    // Show loading if:
-    // 1. Auth is loading
-    // 2. Auth is done, User exists, but Profile is missing AND we haven't hit the 10s timeout yet
-    if (loading || (user && !userProfile && !showError)) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-zinc-950 text-white">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-                    <p className="text-zinc-500 text-sm animate-pulse">Loading...</p>
-                </div>
-            </div>
-        );
+    // Show loading if auth is loading
+    if (loading) {
+        return <Loader fullscreen={true} />;
     }
 
     if (!user) {

@@ -7,9 +7,16 @@ interface TaskProgressCardProps {
     completed: number;
     total: number;
     className?: string;
+    isLoading?: boolean;
 }
 
-export default function TaskProgressCard({ completed, total, className }: TaskProgressCardProps) {
+import Skeleton from "./Skeleton";
+
+export default function TaskProgressCard({ completed, total, className, isLoading }: TaskProgressCardProps) {
+    if (isLoading) {
+        return <Skeleton className={cn("h-32 w-full rounded-2xl", className)} />;
+    }
+
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     const radius = 24;
     const circumference = 2 * Math.PI * radius;
