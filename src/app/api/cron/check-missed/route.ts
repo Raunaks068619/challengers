@@ -115,15 +115,16 @@ export async function GET(req: NextRequest) {
                     // MISSED!
                     console.log(`User ${userId} missed challenge ${challengeId} on ${dateStr}`);
 
-                    // A. Create 'missed' log
-                    await adminDb.collection("daily_logs").add({
-                        challenge_id: challengeId,
-                        user_id: userId,
-                        date: dateStr,
-                        status: "missed",
-                        verified: false,
-                        created_at: new Date().toISOString()
-                    });
+                    // this is not required as we are not creating missed logs
+                    // // A. Create 'missed' log
+                    // await adminDb.collection("daily_logs").add({
+                    //     challenge_id: challengeId,
+                    //     user_id: userId,
+                    //     date: dateStr,
+                    //     status: "missed",
+                    //     verified: false,
+                    //     created_at: new Date().toISOString()
+                    // });
 
                     // B. Deduct Points & Reset Streak
                     const penalty = 100;

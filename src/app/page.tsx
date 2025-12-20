@@ -165,12 +165,11 @@ export default function Dashboard() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-background text-foreground p-6 pb-20">
+      <div className="min-h-screen bg-background text-foreground px-6 pb-30">
         {/* Header */}
         <PageHeader
           title="Challengers"
           showNotificationComponent={true}
-          className="mb-4"
         />
 
         <main className="space-y-8">

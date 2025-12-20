@@ -49,8 +49,8 @@ export default function ChallengesPage() {
 
     return (
         <AuthGuard>
-            <div className="min-h-screen bg-background text-foreground p-6 pb-24">
-                <PageHeader title="My Challenges" className="mb-6" />
+            <div className="min-h-screen bg-background text-foreground px-6 pb-24">
+                <PageHeader title="My Challenges" className="mb-2" rightContent={<div />} />
 
                 {/* Actions Row */}
                 <div className="grid grid-cols-2 gap-4 mb-6">

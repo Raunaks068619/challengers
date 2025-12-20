@@ -65,7 +65,7 @@ export default function UnreadMessagesBadge() {
     return (
         <Link
             href="/messages"
-            className="px-2 -mr-2 rounded-full hover:bg-muted transition-colors text-foreground relative"
+            className="p-2 -mr-2 rounded-full hover:bg-muted transition-colors text-foreground relative"
         >
             <MessageCircle className="w-6 h-5" />
             {unreadCount > 0 && (

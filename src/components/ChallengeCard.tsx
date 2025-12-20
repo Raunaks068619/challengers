@@ -57,7 +57,6 @@ export default function ChallengeCard({ challenge, logs, userId, isLoading }: Ch
 
     const weekDays = getWeekDays();
     const todayStr = new Date().toISOString().split('T')[0];
-    console.log({ challenge });
 
 
     return (

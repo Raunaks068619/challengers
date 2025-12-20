@@ -15,8 +15,6 @@ export async function getProfileFromCache(uid: string) {
             timeoutPromise
         ]) as string | null;
 
-        console.log({ data });
-
         return data ? JSON.parse(data) : null;
     } catch (e) {
         console.error("Redis get error:", e);

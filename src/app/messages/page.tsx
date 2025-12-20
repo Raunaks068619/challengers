@@ -21,7 +21,7 @@ export default function MessagesPage() {
     return (
         <AuthGuard>
             <div className="min-h-screen bg-background text-foreground pb-20">
-                <div className="p-6 h-full flex flex-col">
+                <div className="px-6 h-full flex flex-col">
 
                     <PageHeader
                         title="Messages"

@@ -23,7 +23,7 @@ export default function ChallengeChatPage() {
     return (
         <AuthGuard>
             <div className="fixed inset-0 z-50 bg-background text-foreground flex flex-col">
-                <div className="px-6 pt-4 border-b border-border/50 bg-background z-10">
+                <div className="px-6 border-b border-border/50 bg-background z-10">
                     <PageHeader
                         title={challenge.title}
                         backbutton={true}

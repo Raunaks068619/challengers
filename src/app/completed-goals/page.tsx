@@ -47,7 +47,7 @@ export default function CompletedGoalsPage() {
 
     return (
         <AuthGuard>
-            <div className="min-h-screen bg-background text-foreground p-6 pb-20">
+            <div className="min-h-screen bg-background text-foreground px-6 pb-30">
                 <PageHeader title="Today's Goals" backbutton={true} backbuttonAction="/" className="mb-6" />
 
                 <main className="space-y-6">

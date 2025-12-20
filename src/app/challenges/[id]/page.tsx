@@ -167,7 +167,7 @@ export default function ChallengeDetailsPage() {
 
     return (
         <AuthGuard>
-            <div className="min-h-screen bg-background text-foreground p-6 pb-20">
+            <div className="min-h-screen bg-background text-foreground px-6 pb-30">
                 <PageHeader
                     title={challenge?.title || "Challenge"}
                     backbutton={true}

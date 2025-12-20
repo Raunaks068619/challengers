@@ -119,7 +119,7 @@ export default function ProfilePage() {
         setIsGenerating(true);
         setGeneratedAvatar(null);
         try {
-            const base64Image = await generateAvatarAction(avatarPrompt);
+            const base64Image = await generateAvatarAction(`A high-quality 3D CGI render in the distinct style of an Apple Memoji. The image is a head and shoulders portrait of a custom avatar designed based on the specific following details: ${avatarPrompt}. The lighting is clean, soft studio lighting. The textures are smooth, polished, and cartoonish. The background is a clean, solid, neutral color.`);
             setGeneratedAvatar(base64Image);
         } catch (error: any) {
             toast.error(error.message);
@@ -142,7 +142,7 @@ export default function ProfilePage() {
             const fileName = `avatars/${user.uid}-${Math.random().toString(36).substring(7)}.png`;
 
             const { error: uploadError } = await supabase.storage
-                .from('avatars')
+                .from('challengers')
                 .upload(fileName, file, {
                     upsert: true,
                     contentType: 'image/png'
@@ -151,7 +151,7 @@ export default function ProfilePage() {
             if (uploadError) throw uploadError;
 
             const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
+                .from('challengers')
                 .getPublicUrl(fileName);
 
             // Update Form Data
@@ -189,7 +189,7 @@ export default function ProfilePage() {
                     ["smiling", "confident", "cool", "happy"]
                 ];
                 const random = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-                const prompt = `A ${random(features[4])} person with ${random(features[0])} ${random(features[1])} hair, wearing ${random(features[2])} and a ${random(features[3])}.`;
+                const prompt = `A high-quality 3D CGI render in the distinct style of an Apple Memoji. The image is a head and shoulders portrait of a custom avatar designed based on the specific following details: ${features[3]}. The lighting is clean, soft studio lighting. The textures are smooth, polished, and cartoonish. The background is a clean, solid, neutral color.`;
                 setAvatarPrompt(prompt);
                 toast.info("Generated random prompt (add a Bio for personalized results!)");
             } else {
@@ -206,7 +206,7 @@ export default function ProfilePage() {
 
     return (
         <AuthGuard>
-            <div className="min-h-screen bg-background text-foreground p-6 pb-24">
+            <div className="min-h-screen bg-background text-foreground px-6 pb-24">
                 <PageHeader
                     title="Edit Profile"
                     className="mb-8"

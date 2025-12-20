@@ -12,7 +12,7 @@ export async function generateAvatarAction(userDescription: string) {
     }
 
     try {
-        const stylePrompt = "A 3D Apple Memoji style avatar. FLOATING HEAD ONLY. No shoulders, no neck, no body, no torso, no clothes. Just the floating face and hair in the center. The character has " + userDescription + ". Clean solid dark grey background. Soft studio lighting. Cute, expressive, high fidelity, 3D cartoon style.";
+        const stylePrompt = `A high-quality 3D CGI render in the distinct style of an Apple Memoji. The image is a head and shoulders portrait of a custom avatar designed based on the specific following details: ${userDescription} . The lighting is clean, soft studio lighting. The textures are smooth, polished, and cartoonish. The background is a clean, solid, neutral color.`;
 
         const response = await openai.images.generate({
             model: "dall-e-3",

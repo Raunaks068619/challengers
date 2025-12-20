@@ -65,12 +65,18 @@ export default function PageHeader({
 
     return (
         <>
-            <header className={cn("flex items-center justify-between mb-4", className)}>
+            <nav className={cn(
+                "flex items-center h-16 sticky top-0 bg-background z-50",
+                backbutton || leftContent || rightContent || showNotificationComponent || (showOptionButton && showOptionButton.length > 0)
+                    ? "justify-between"
+                    : "justify-center",
+                className
+            )}>
                 <div className="flex items-center gap-2">
                     {backbutton && (
                         <button
                             onClick={handleBack}
-                            className="-ml-2 rounded-full hover:bg-muted transition-colors text-foreground"
+                            className="-ml-2 p-2 rounded-full hover:bg-muted transition-colors text-foreground"
                         >
                             <ChevronLeft className="w-6 h-6" />
                         </button>
@@ -78,61 +84,63 @@ export default function PageHeader({
                     {leftContent ? (
                         leftContent
                     ) : isLoading ? (
-                        <Skeleton className="h-8 w-48 rounded-lg" />
+                        <Skeleton className="h-6 w-32 rounded-lg" />
                     ) : (
-                        <h1 className={`text-${backbutton ? "l" : "xl"} font-bold text-foreground`}>{title}</h1>
+                        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
                     )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                    {rightContent}
-                    {showNotificationComponent && (
-                        <>
-                            <UnreadMessagesBadge />
-                            {/* <button
-                                onClick={() => setShowNotifications(true)}
-                                className="p-2 rounded-full hover:bg-muted transition-colors relative text-foreground"
-                            >
-                                <Bell className="w-6 h-5" />
-                            </button> */}
-                        </>
-                    )}
+                {(rightContent || showNotificationComponent || (showOptionButton && showOptionButton.length > 0)) && (
+                    <div className="flex items-center gap-4">
+                        {rightContent}
+                        {showNotificationComponent && (
+                            <>
+                                <UnreadMessagesBadge />
+                                {/* <button
+                                    onClick={() => setShowNotifications(true)}
+                                    className="p-2 rounded-full hover:bg-muted transition-colors relative text-foreground"
+                                >
+                                    <Bell className="w-6 h-5" />
+                                </button> */}
+                            </>
+                        )}
 
-                    {showOptionButton && showOptionButton.length > 0 && (
-                        <div className="relative" ref={optionsRef}>
-                            <button
-                                onClick={() => setShowOptions(!showOptions)}
-                                className="p-2 rounded-full hover:bg-muted transition-colors text-foreground"
-                            >
-                                <MoreHorizontal className="w-6 h-6" />
-                            </button>
+                        {showOptionButton && showOptionButton.length > 0 && (
+                            <div className="relative" ref={optionsRef}>
+                                <button
+                                    onClick={() => setShowOptions(!showOptions)}
+                                    className="p-2 rounded-full hover:bg-muted transition-colors text-foreground"
+                                >
+                                    <MoreHorizontal className="w-6 h-6" />
+                                </button>
 
-                            {/* Dropdown Menu */}
-                            {showOptions && (
-                                <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-                                    {showOptionButton.map((option, index) => (
-                                        <button
-                                            key={index}
-                                            onClick={() => {
-                                                if (option.navigateTo) {
-                                                    router.push(option.navigateTo);
-                                                } else if (option.runFunction) {
-                                                    option.runFunction();
-                                                }
-                                                setShowOptions(false);
-                                            }}
-                                            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-muted transition-colors text-foreground border-b border-border last:border-0 flex items-center gap-3"
-                                        >
-                                            {option.icon && <span className="text-muted-foreground">{option.icon}</span>}
-                                            <span>{option.title}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </header>
+                                {/* Dropdown Menu */}
+                                {showOptions && (
+                                    <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+                                        {showOptionButton.map((option, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => {
+                                                    if (option.navigateTo) {
+                                                        router.push(option.navigateTo);
+                                                    } else if (option.runFunction) {
+                                                        option.runFunction();
+                                                    }
+                                                    setShowOptions(false);
+                                                }}
+                                                className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-muted transition-colors text-foreground border-b border-border last:border-0 flex items-center gap-3"
+                                            >
+                                                {option.icon && <span className="text-muted-foreground">{option.icon}</span>}
+                                                <span>{option.title}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </nav>
 
             {/* Notification Panel */}
             {showNotificationComponent && (
