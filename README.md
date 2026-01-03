@@ -22,17 +22,26 @@ Challengers is a social productivity app that helps you build habits through fri
 - **In-App Alerts:** Real-time badges and toast notifications.
 - **Smart Reminders:** Get notified before your challenge window closes.
 
+### 🛡️ Security & Performance
+- **Rate Limiting:** Redis-backed rate limiting protects all API endpoints from abuse.
+  - Chat: 30 requests/minute
+  - Mutations: 20 requests/minute
+  - Reads: 60 requests/minute
+- **Automatic Throttling:** Returns 429 status with `Retry-After` headers when limits are exceeded.
+- **Smart Identification:** Tracks limits per authenticated user or IP address.
+
 ### 🎨 Personalization
 - **Theme Sync:** Dark/Light mode preference is saved to your profile and synced across devices.
 - **Profile Customization:** Update your avatar and display name.
 
 ## Tech Stack
 
-- **Framework:** [Next.js 15](https://nextjs.org/) (App Router)
+- **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
 - **Database:** Firebase Firestore
 - **Authentication:** Firebase Auth
+- **Caching & Rate Limiting:** Redis (ioredis)
 - **State Management:** Redux Toolkit (RTK Query)
 - **PWA:** Fully installable Progressive Web App
 
@@ -50,7 +59,7 @@ Challengers is a social productivity app that helps you build habits through fri
     ```
 
 3.  **Set up Environment Variables:**
-    Create a `.env.local` file in the root directory and add your Firebase configuration:
+    Create a `.env.local` file in the root directory and add your Firebase and Redis configuration:
 
     ```env
     # Firebase Client SDK
@@ -65,6 +74,10 @@ Challengers is a social productivity app that helps you build habits through fri
     # Firebase Admin SDK (Required for Push Notifications)
     FIREBASE_CLIENT_EMAIL=your_client_email
     FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+
+    # Redis (Required for Rate Limiting & Caching)
+    REDIS_URL=your_redis_host
+    REDIS_PASSWORD=your_redis_password
     ```
 
 4.  **Run the development server:**
