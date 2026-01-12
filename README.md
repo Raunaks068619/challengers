@@ -45,6 +45,21 @@ Challengers is a social productivity app that helps you build habits through fri
 - **State Management:** Redux Toolkit (RTK Query)
 - **PWA:** Fully installable Progressive Web App
 
+
+## App Screens and UI
+
+1. **Dashboard | Challenges | Memory | Profile**
+   
+<img width="1336" height="725" alt="Frame 4" src="https://github.com/user-attachments/assets/c4b9c436-0348-46d2-a996-485231c0f63c" />
+
+
+2. **Challenge stats | Check-in page | Stats Chart | Edit/Create challenge with AI**
+   
+<img width="1336" height="725" alt="Frame 4 (1)" src="https://github.com/user-attachments/assets/64d71367-9317-4f0f-b624-edbeff0cb087" />
+
+
+
+
 ## Getting Started
 
 1.  **Clone the repository:**
