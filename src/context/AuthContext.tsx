@@ -75,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     first_name: u.displayName?.split(' ')[0] || "",
                     last_name: u.displayName?.split(' ').slice(1).join(' ') || "",
                     install_prompt_seen: false,
+                    notification_prompt_seen: false,
                 };
                 await setDoc(userRef, newProfile);
                 setUserProfile(newProfile);
@@ -118,10 +119,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Redirect to onboarding if needed
     useEffect(() => {
-        if (userProfile && userProfile.install_prompt_seen === false) {
-            // Check if we are already on the onboarding page to avoid loops
-            if (window.location.pathname !== '/onboarding/install') {
-                router.push('/onboarding/install');
+        if (userProfile) {
+            const currentPath = window.location.pathname;
+
+            // First check install prompt
+            if (userProfile.install_prompt_seen === false) {
+                if (currentPath !== '/onboarding/install') {
+                    router.push('/onboarding/install');
+                }
+            }
+            // Then check notification prompt (after install is done)
+            else if (userProfile.notification_prompt_seen === false) {
+                if (currentPath !== '/onboarding/notifications') {
+                    router.push('/onboarding/notifications');
+                }
             }
         }
     }, [userProfile, router]);

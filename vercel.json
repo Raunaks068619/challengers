@@ -3,6 +3,10 @@
         {
             "path": "/api/cron/check-missed",
             "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/cron/send-reminders",
+            "schedule": "*/5 * * * *"
         }
     ]
 }
