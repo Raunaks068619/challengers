@@ -10,6 +10,7 @@ import ComponentVisibilityGuard from "@/common/ComponentVisibilityGuard";
 import InstallPrompt from "@/components/InstallPrompt";
 import ForegroundNotificationListener from "@/components/ForegroundNotificationListener";
 import { ThemeProvider } from "@/components/theme-provider";
+import { NotificationProvider } from "@/notifications/useNotification";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -51,15 +52,18 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
-                <ThemeSync />
-                <NotificationManager />
-                <div>
-                  {children}
-                </div>
-                <ComponentVisibilityGuard allowedRoutes={['/', '/profile', '/memory', '/challenges']}>
-                  <BottomNav />
-                </ComponentVisibilityGuard>
-                <Toaster position="top-center" />
+                <NotificationProvider>
+                  <ThemeSync />
+                  <NotificationManager />
+                  <ForegroundNotificationListener />
+                  <div>
+                    {children}
+                  </div>
+                  <ComponentVisibilityGuard allowedRoutes={['/', '/profile', '/memory', '/challenges']}>
+                    <BottomNav />
+                  </ComponentVisibilityGuard>
+                  <Toaster position="top-center" />
+                </NotificationProvider>
               </ThemeProvider>
             </AuthProvider>
           </Suspense>
