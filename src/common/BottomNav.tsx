@@ -47,6 +47,13 @@ export default function BottomNav() {
                     <span className="text-[10px] font-medium">Memory</span>
                 </Link>
 
+                <Link href="/shared" className={`flex flex-col items-center gap-1 ${isActive('/shared') ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    <span className="text-[10px] font-medium">Shared</span>
+                </Link>
+
                 <Link href="/profile" className={`flex flex-col items-center gap-1 ${isActive('/profile') ? 'text-primary' : 'text-muted-foreground'}`}>
                     {userProfile?.photo_url ? (
                         <div className={`w-8 h-6 rounded-full overflow-hidden border-2 ${isActive('/profile') ? 'border-primary' : 'border-transparent'}`}>

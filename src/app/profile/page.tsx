@@ -271,43 +271,52 @@ export default function ProfilePage() {
                                 Enable Notifications
                             </button>
 
-                            <button
-                                onClick={async () => {
-                                    const toastId = toast.loading("Sending test notification...");
-                                    try {
-                                        console.log("[Profile] Requesting notification permission...");
-                                        const token = await requestNotificationPermission();
-                                        console.log("[Profile] Token retrieved:", token);
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={async () => {
+                                        const toastId = toast.loading("Sending test notification...");
+                                        try {
+                                            console.log("[Profile] Requesting notification permission...");
+                                            const token = await requestNotificationPermission();
+                                            console.log("[Profile] Token retrieved:", token);
 
-                                        if (!token) {
-                                            console.error("[Profile] Notification permission denied or token null");
-                                            toast.error("Notification permission denied", { id: toastId });
-                                            return;
+                                            if (!token) {
+                                                console.error("[Profile] Notification permission denied or token null");
+                                                toast.error("Notification permission denied", { id: toastId });
+                                                return;
+                                            }
+
+                                            console.log("[Profile] Sending request to /api/test-notification");
+                                            const res = await fetch("/api/test-notification", {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ token })
+                                            });
+
+                                            const data = await res.json();
+                                            console.log("[Profile] API Response:", data);
+
+                                            if (!res.ok) throw new Error(data.error || "Failed to send");
+
+                                            toast.success("Notification sent! Check your status bar.", { id: toastId });
+                                        } catch (error) {
+                                            console.error("[Profile] Error:", error);
+                                            toast.error("Failed to send test notification", { id: toastId });
                                         }
-
-                                        console.log("[Profile] Sending request to /api/test-notification");
-                                        const res = await fetch("/api/test-notification", {
-                                            method: "POST",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ token })
-                                        });
-
-                                        const data = await res.json();
-                                        console.log("[Profile] API Response:", data);
-
-                                        if (!res.ok) throw new Error(data.error || "Failed to send");
-
-                                        toast.success("Notification sent! Check your status bar.", { id: toastId });
-                                    } catch (error) {
-                                        console.error("[Profile] Error:", error);
-                                        toast.error("Failed to send test notification", { id: toastId });
-                                    }
-                                }}
-                                className="text-[10px] flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"
-                            >
-                                <Bell className="w-3 h-3" />
-                                Test Notification
-                            </button>
+                                    }}
+                                    className="text-[10px] flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors border border-transparent hover:border-border"
+                                >
+                                    <Bell className="w-3 h-3" />
+                                    Test Notification
+                                </button>
+                                <Link
+                                    href="/test-notifications"
+                                    className="text-[10px] flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 rounded-full text-primary hover:text-primary transition-colors border border-primary/20"
+                                >
+                                    <Bell className="w-3 h-3" />
+                                    Test Page
+                                </Link>
+                            </div>
                         </div>
 
                         <div className="w-full max-w-xs mt-4">

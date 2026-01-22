@@ -59,7 +59,7 @@ export default function RootLayout({
                   <div>
                     {children}
                   </div>
-                  <ComponentVisibilityGuard allowedRoutes={['/', '/profile', '/memory', '/challenges']}>
+                  <ComponentVisibilityGuard allowedRoutes={['/', '/profile', '/memory', '/challenges', '/shared']}>
                     <BottomNav />
                   </ComponentVisibilityGuard>
                   <Toaster position="top-center" />

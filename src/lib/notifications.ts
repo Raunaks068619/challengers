@@ -1,4 +1,5 @@
 import { getMessagingInstance } from "./firebase";
+import { getNotificationServiceWorkerRegistration } from "@/notifications/NotificationPush";
 import { getToken } from "firebase/messaging";
 
 export const requestNotificationPermission = async () => {
@@ -17,11 +18,9 @@ export const requestNotificationPermission = async () => {
                 return null;
             }
 
-            // Ensure Service Worker is registered and ready
+            // Ensure Service Worker is registered and ready (PWA worker preferred)
             if ("serviceWorker" in navigator) {
-                await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-                const serviceWorkerRegistration = await navigator.serviceWorker.ready;
-
+                const serviceWorkerRegistration = await getNotificationServiceWorkerRegistration();
                 const token = await getToken(messaging, {
                     vapidKey: vapidKey,
                     serviceWorkerRegistration

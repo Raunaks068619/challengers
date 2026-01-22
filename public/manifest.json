@@ -6,6 +6,7 @@
     "display": "standalone",
     "background_color": "#09090b",
     "theme_color": "#09090b",
+    "gcm_sender_id": "103953800507",
     "icons": [
         {
             "src": "/icon-192x192.png",
@@ -17,5 +18,14 @@
             "sizes": "512x512",
             "type": "image/png"
         }
-    ]
+    ],
+    "share_target": {
+        "action": "/shared",
+        "method": "GET",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url"
+        }
+    }
 }

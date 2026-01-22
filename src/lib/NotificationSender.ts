@@ -1,5 +1,6 @@
 import "server-only";
 import { adminMessaging, adminDb } from "./firebase-admin";
+import { FieldPath, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { Message, MulticastMessage } from "firebase-admin/messaging";
 
 export interface NotificationPayload {
@@ -181,5 +182,65 @@ export async function sendNotificationToUsers(
     return {
         successCount: totalSuccess,
         failureCount: totalFailure
+    };
+}
+
+/**
+ * Send a notification to all users that have at least one FCM token
+ */
+export async function sendNotificationToAllUsers(
+    payload: NotificationPayload
+): Promise<{ successCount: number; failureCount: number; userCount: number; tokenCount: number }> {
+    const pageSize = 500;
+    let lastDoc: QueryDocumentSnapshot | null = null;
+    let totalSuccess = 0;
+    let totalFailure = 0;
+    let totalUsers = 0;
+    let totalTokens = 0;
+    const tokenBuffer: string[] = [];
+
+    const flushBuffer = async () => {
+        while (tokenBuffer.length >= 500) {
+            const chunk = tokenBuffer.splice(0, 500);
+            const result = await sendNotificationToTokens(chunk, payload);
+            totalSuccess += result.successCount;
+            totalFailure += result.failureCount;
+        }
+    };
+
+    while (true) {
+        let query = adminDb.collection("users").orderBy(FieldPath.documentId()).limit(pageSize);
+        if (lastDoc) {
+            query = query.startAfter(lastDoc);
+        }
+
+        const snapshot = await query.get();
+        if (snapshot.empty) break;
+
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            const tokens: string[] = Array.isArray(data?.fcmTokens) ? data.fcmTokens : [];
+            if (tokens.length === 0) continue;
+            totalUsers += 1;
+            totalTokens += tokens.length;
+            tokenBuffer.push(...tokens);
+            await flushBuffer();
+        }
+
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.size < pageSize) break;
+    }
+
+    if (tokenBuffer.length > 0) {
+        const result = await sendNotificationToTokens(tokenBuffer, payload);
+        totalSuccess += result.successCount;
+        totalFailure += result.failureCount;
+    }
+
+    return {
+        successCount: totalSuccess,
+        failureCount: totalFailure,
+        userCount: totalUsers,
+        tokenCount: totalTokens
     };
 }

@@ -1,7 +1,28 @@
 import { getMessagingInstance } from "@/lib/firebase";
 import { getToken } from "firebase/messaging";
 
-const SERVICE_WORKER_FILE_PATH = "/firebase-messaging-sw.js";
+const PWA_SERVICE_WORKER_FILE_PATH = "/sw.js";
+const FALLBACK_SERVICE_WORKER_FILE_PATH = "/firebase-messaging-sw.js";
+
+export async function getNotificationServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
+    if (!("serviceWorker" in navigator)) {
+        throw new Error("Service workers are not supported in this browser");
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.register(PWA_SERVICE_WORKER_FILE_PATH);
+        await navigator.serviceWorker.ready;
+        return registration;
+    } catch (error) {
+        console.warn(
+            "[NotificationPush] Failed to register PWA service worker. Falling back to Firebase SW.",
+            error
+        );
+        const registration = await navigator.serviceWorker.register(FALLBACK_SERVICE_WORKER_FILE_PATH);
+        await navigator.serviceWorker.ready;
+        return registration;
+    }
+}
 
 /**
  * Check if push notifications are supported in the current browser
@@ -74,9 +95,8 @@ export async function registerAndSubscribe(
             return;
         }
 
-        // Register service worker
-        await navigator.serviceWorker.register(SERVICE_WORKER_FILE_PATH);
-        const serviceWorkerRegistration = await navigator.serviceWorker.ready;
+        // Register service worker (prefer the PWA worker, fallback to Firebase SW)
+        const serviceWorkerRegistration = await getNotificationServiceWorkerRegistration();
 
         // Get FCM token
         const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
@@ -112,11 +132,76 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 
         if (subscription) {
             await subscription.unsubscribe();
+            console.log("[NotificationPush] Successfully unsubscribed from push notifications");
             return true;
         }
         return false;
     } catch (error) {
         console.error("[NotificationPush] Error unsubscribing:", error);
         return false;
+    }
+}
+
+/**
+ * Reset all push notification subscriptions and service workers
+ * Useful when PWA has been removed/re-added multiple times
+ */
+export async function resetPushSubscription(): Promise<{
+    unsubscribed: boolean;
+    serviceWorkersUnregistered: number;
+    cachesCleared: number;
+}> {
+    const result = {
+        unsubscribed: false,
+        serviceWorkersUnregistered: 0,
+        cachesCleared: 0
+    };
+
+    try {
+        // 1. Unsubscribe from push notifications
+        if ("serviceWorker" in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    await subscription.unsubscribe();
+                    result.unsubscribed = true;
+                    console.log("[NotificationPush] Unsubscribed from push notifications");
+                }
+            } catch (error) {
+                console.warn("[NotificationPush] Error unsubscribing:", error);
+            }
+        }
+
+        // 2. Unregister all service workers
+        if ("serviceWorker" in navigator) {
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                    result.serviceWorkersUnregistered++;
+                    console.log("[NotificationPush] Unregistered service worker:", registration.scope);
+                }
+            } catch (error) {
+                console.warn("[NotificationPush] Error unregistering service workers:", error);
+            }
+        }
+
+        // 3. Clear all caches
+        if ("caches" in window) {
+            try {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+                result.cachesCleared = cacheNames.length;
+                console.log("[NotificationPush] Cleared caches:", cacheNames);
+            } catch (error) {
+                console.warn("[NotificationPush] Error clearing caches:", error);
+            }
+        }
+
+        return result;
+    } catch (error) {
+        console.error("[NotificationPush] Error resetting subscription:", error);
+        throw error;
     }
 }
