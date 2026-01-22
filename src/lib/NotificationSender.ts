@@ -17,25 +17,63 @@ export interface NotificationPayload {
 }
 
 /**
+ * Get the base URL for the application
+ * Uses VERCEL_URL in production, falls back to NEXT_PUBLIC_APP_URL or defaults to production domain
+ */
+function getBaseUrl(): string {
+    // Default to production domain
+    return "https://challengers-theta.vercel.app";
+}
+
+/**
+ * Convert a relative URL to an absolute URL
+ */
+function toAbsoluteUrl(path: string): string {
+    // If already absolute, return as-is
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+        return path;
+    }
+
+    // Ensure path starts with /
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    return `${getBaseUrl()}${normalizedPath}`;
+}
+
+/**
  * Send a notification to a single FCM token
  */
 export async function sendNotificationToToken(
     token: string,
     payload: NotificationPayload
 ): Promise<string> {
+    // Convert relative URLs to absolute URLs for click actions
+    const baseUrl = getBaseUrl();
+    const notificationUrl = payload.url ? toAbsoluteUrl(payload.url) : baseUrl;
+    
+    // Icon and badge should be relative paths (service worker resolves them)
+    // But we also include absolute URLs in data for compatibility
+    const iconPath = payload.icon || '/icon-192x192.png';
+    const badgePath = payload.badge || '/icon-192x192.png';
+    const imagePath = payload.image;
+    
+    // Absolute URLs for data payload (for service worker compatibility)
+    const iconUrl = toAbsoluteUrl(iconPath);
+    const badgeUrl = toAbsoluteUrl(badgePath);
+    const imageUrl = imagePath ? toAbsoluteUrl(imagePath) : undefined;
+
     const message: Message = {
         token,
         notification: {
             title: payload.title,
             body: payload.body,
-            imageUrl: payload.image,
+            imageUrl: imageUrl, // Can be absolute for notification.imageUrl
         },
         data: {
             title: payload.title,
             body: payload.body,
-            icon: payload.icon || '/icon-192x192.png',
-            badge: payload.badge || '/icon-192x192.png',
-            url: payload.url || '/',
+            icon: iconUrl, // Absolute URL in data
+            badge: badgeUrl, // Absolute URL in data
+            url: notificationUrl, // Absolute URL for click action
             type: payload.type || 'info',
             tag: payload.tag || `notification-${Date.now()}`,
             requireInteraction: payload.requireInteraction ? 'true' : 'false',
@@ -43,11 +81,12 @@ export async function sendNotificationToToken(
         },
         webpush: {
             fcmOptions: {
-                link: payload.url || '/'
+                link: notificationUrl // Absolute URL for click action
             },
             notification: {
-                icon: payload.icon || '/icon-192x192.png',
-                badge: payload.badge || '/icon-192x192.png',
+                // Use relative paths here - service worker will resolve them
+                icon: iconPath,
+                badge: badgePath,
                 requireInteraction: payload.requireInteraction
             }
         }
@@ -64,24 +103,38 @@ export async function sendNotificationToToken(
 export async function sendNotificationToTokens(
     tokens: string[],
     payload: NotificationPayload
-): Promise<{ successCount: number; failureCount: number; failedTokens: string[] }> {
+): Promise<{ successCount: number; failureCount: number; failedTokens: string[]; errorDetails?: Array<{ token: string; error: any }> }> {
     if (tokens.length === 0) {
         return { successCount: 0, failureCount: 0, failedTokens: [] };
     }
+
+    // Convert relative URLs to absolute URLs for click actions
+    const baseUrl = getBaseUrl();
+    const notificationUrl = payload.url ? toAbsoluteUrl(payload.url) : baseUrl;
+    
+    // Icon and badge should be relative paths (service worker resolves them)
+    const iconPath = payload.icon || '/icon-192x192.png';
+    const badgePath = payload.badge || '/icon-192x192.png';
+    const imagePath = payload.image;
+    
+    // Absolute URLs for data payload (for service worker compatibility)
+    const iconUrl = toAbsoluteUrl(iconPath);
+    const badgeUrl = toAbsoluteUrl(badgePath);
+    const imageUrl = imagePath ? toAbsoluteUrl(imagePath) : undefined;
 
     const message: MulticastMessage = {
         tokens,
         notification: {
             title: payload.title,
             body: payload.body,
-            imageUrl: payload.image,
+            imageUrl: imageUrl, // Can be absolute for notification.imageUrl
         },
         data: {
             title: payload.title,
             body: payload.body,
-            icon: payload.icon || '/icon-192x192.png',
-            badge: payload.badge || '/icon-192x192.png',
-            url: payload.url || '/',
+            icon: iconUrl, // Absolute URL in data
+            badge: badgeUrl, // Absolute URL in data
+            url: notificationUrl, // Absolute URL for click action
             type: payload.type || 'info',
             tag: payload.tag || `notification-${Date.now()}`,
             requireInteraction: payload.requireInteraction ? 'true' : 'false',
@@ -89,11 +142,12 @@ export async function sendNotificationToTokens(
         },
         webpush: {
             fcmOptions: {
-                link: payload.url || '/'
+                link: notificationUrl // Absolute URL for click action
             },
             notification: {
-                icon: payload.icon || '/icon-192x192.png',
-                badge: payload.badge || '/icon-192x192.png',
+                // Use relative paths here - service worker will resolve them
+                icon: iconPath,
+                badge: badgePath,
                 requireInteraction: payload.requireInteraction
             }
         }
@@ -102,19 +156,39 @@ export async function sendNotificationToTokens(
     const response = await adminMessaging.sendEachForMulticast(message);
 
     const failedTokens: string[] = [];
+    const errorDetails: Array<{ token: string; error: any }> = [];
+    
     response.responses.forEach((resp, idx) => {
         if (!resp.success) {
-            failedTokens.push(tokens[idx]);
-            console.error("[NotificationSender] Failed to send to token:", tokens[idx], resp.error);
+            const token = tokens[idx];
+            failedTokens.push(token);
+            const error = resp.error;
+            
+            // Log detailed error information
+            const errorCode = error?.code || 'unknown';
+            const errorMessage = error?.message || 'Unknown error';
+            
+            console.error("[NotificationSender] Failed to send to token:", {
+                token: token.substring(0, 20) + "...",
+                errorCode,
+                errorMessage,
+                fullError: error
+            });
+            
+            errorDetails.push({ token, error });
         }
     });
 
     console.log(`[NotificationSender] Sent to ${response.successCount}/${tokens.length} tokens`);
+    if (failedTokens.length > 0) {
+        console.warn(`[NotificationSender] ${failedTokens.length} tokens failed. Common reasons: invalid/expired tokens, unregistered tokens, or payload format issues.`);
+    }
 
     return {
         successCount: response.successCount,
         failureCount: response.failureCount,
-        failedTokens
+        failedTokens,
+        errorDetails
     };
 }
 
@@ -187,17 +261,20 @@ export async function sendNotificationToUsers(
 
 /**
  * Send a notification to all users that have at least one FCM token
+ * Automatically cleans up invalid tokens from Firestore
  */
 export async function sendNotificationToAllUsers(
     payload: NotificationPayload
-): Promise<{ successCount: number; failureCount: number; userCount: number; tokenCount: number }> {
+): Promise<{ successCount: number; failureCount: number; userCount: number; tokenCount: number; cleanedTokens: number }> {
     const pageSize = 500;
     let lastDoc: QueryDocumentSnapshot | null = null;
     let totalSuccess = 0;
     let totalFailure = 0;
     let totalUsers = 0;
     let totalTokens = 0;
+    let totalCleaned = 0;
     const tokenBuffer: string[] = [];
+    const userTokenMap = new Map<string, string[]>(); // userId -> tokens
 
     const flushBuffer = async () => {
         while (tokenBuffer.length >= 500) {
@@ -208,6 +285,7 @@ export async function sendNotificationToAllUsers(
         }
     };
 
+    // First pass: collect all tokens and map them to users
     while (true) {
         let query = adminDb.collection("users").orderBy(FieldPath.documentId()).limit(pageSize);
         if (lastDoc) {
@@ -223,6 +301,7 @@ export async function sendNotificationToAllUsers(
             if (tokens.length === 0) continue;
             totalUsers += 1;
             totalTokens += tokens.length;
+            userTokenMap.set(doc.id, tokens);
             tokenBuffer.push(...tokens);
             await flushBuffer();
         }
@@ -231,16 +310,42 @@ export async function sendNotificationToAllUsers(
         if (snapshot.size < pageSize) break;
     }
 
+    // Send to remaining tokens
+    let allFailedTokens: string[] = [];
     if (tokenBuffer.length > 0) {
         const result = await sendNotificationToTokens(tokenBuffer, payload);
         totalSuccess += result.successCount;
         totalFailure += result.failureCount;
+        allFailedTokens = result.failedTokens || [];
+    }
+
+    // Clean up invalid tokens from Firestore
+    // Map failed tokens back to users and remove them
+    for (const [userId, userTokens] of userTokenMap.entries()) {
+        const failedUserTokens = userTokens.filter(token => allFailedTokens.includes(token));
+        if (failedUserTokens.length > 0) {
+            const validTokens = userTokens.filter(token => !failedUserTokens.includes(token));
+            try {
+                await adminDb.collection('users').doc(userId).update({
+                    fcmTokens: validTokens.length > 0 ? validTokens : []
+                });
+                totalCleaned += failedUserTokens.length;
+                console.log(`[NotificationSender] Cleaned ${failedUserTokens.length} invalid token(s) for user ${userId}`);
+            } catch (error) {
+                console.error(`[NotificationSender] Error cleaning tokens for user ${userId}:`, error);
+            }
+        }
+    }
+
+    if (totalCleaned > 0) {
+        console.log(`[NotificationSender] Cleaned up ${totalCleaned} total invalid tokens from Firestore`);
     }
 
     return {
         successCount: totalSuccess,
         failureCount: totalFailure,
         userCount: totalUsers,
-        tokenCount: totalTokens
+        tokenCount: totalTokens,
+        cleanedTokens: totalCleaned
     };
 }
