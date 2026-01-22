@@ -36,8 +36,6 @@ export interface UserProfile {
     total_lost: number;
     current_points: number;
     fcm_token?: string | null;
-    fcmTokens?: string[];
-    notification_prompt_seen?: boolean;
     install_prompt_seen?: boolean;
     points_history?: { date: string; points: number; taskStatus?: 'completed' | 'missed' }[];
     theme?: 'light' | 'dark' | 'system';
