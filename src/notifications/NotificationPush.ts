@@ -66,8 +66,64 @@ export function getPermissionStatus(): NotificationPermission | null {
 }
 
 /**
+ * Restore existing FCM token without requesting permission
+ * Use this when permission is already granted to silently restore subscription
+ */
+export async function restoreExistingToken(
+    onSubscribe: (token: string | null) => void,
+    onError: (error: Error) => void
+): Promise<void> {
+    try {
+        // Check if notifications are supported
+        if (!isNotificationSupported()) {
+            onError(new Error("Push notifications are not supported in this browser"));
+            return;
+        }
+
+        // Only restore if permission is already granted
+        if (Notification.permission !== "granted") {
+            onError(new Error(`Cannot restore: permission is ${Notification.permission}`));
+            return;
+        }
+
+        // Get Firebase messaging instance
+        const messaging = await getMessagingInstance();
+        if (!messaging) {
+            onError(new Error("Firebase messaging not available"));
+            return;
+        }
+
+        // Register service worker (prefer the PWA worker, fallback to Firebase SW)
+        const serviceWorkerRegistration = await getNotificationServiceWorkerRegistration();
+
+        // Get FCM token
+        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+        if (!vapidKey) {
+            onError(new Error("VAPID key is missing"));
+            return;
+        }
+
+        const token = await getToken(messaging, {
+            vapidKey,
+            serviceWorkerRegistration
+        });
+
+        if (token) {
+            console.info("[NotificationPush] FCM Token restored:", token.substring(0, 20) + "...");
+            onSubscribe(token);
+        } else {
+            onError(new Error("Failed to get FCM token - service worker may need to be re-registered"));
+        }
+    } catch (error: any) {
+        console.error("[NotificationPush] Error during token restoration:", error);
+        onError(error);
+    }
+}
+
+/**
  * Register service worker and subscribe to push notifications
  * Uses Firebase Cloud Messaging under the hood
+ * Only requests permission if it hasn't been set yet (default state)
  */
 export async function registerAndSubscribe(
     onSubscribe: (token: string | null) => void,
@@ -80,14 +136,20 @@ export async function registerAndSubscribe(
             return;
         }
 
-        // Request permission
-        const permission = await Notification.requestPermission();
-
-        if (permission !== "granted") {
-            onError(new Error(`Notification permission ${permission}`));
+        // Only request permission if the browser hasn't decided yet
+        if (Notification.permission === "default") {
+            const permission = await Notification.requestPermission();
+            if (permission !== "granted") {
+                onError(new Error(`Notification permission ${permission}`));
+                return;
+            }
+        } else if (Notification.permission !== "granted") {
+            // Permission was explicitly denied
+            onError(new Error(`Notification permission ${Notification.permission}`));
             return;
         }
 
+        // If we get here, permission is granted - proceed to get token
         // Get Firebase messaging instance
         const messaging = await getMessagingInstance();
         if (!messaging) {

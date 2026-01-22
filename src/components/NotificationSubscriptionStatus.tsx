@@ -51,10 +51,10 @@ export default function NotificationSubscriptionStatus({
                 onClick={handleSubscribe}
                 disabled={isLoading || isSubscribed || isDenied}
                 className={`relative p-2 rounded-full transition-colors ${isSubscribed
-                        ? "bg-primary/10 text-primary"
-                        : isDenied
-                            ? "bg-destructive/10 text-destructive cursor-not-allowed"
-                            : "bg-muted hover:bg-muted/80 text-foreground"
+                    ? "bg-primary/10 text-primary"
+                    : isDenied
+                        ? "bg-destructive/10 text-destructive cursor-not-allowed"
+                        : "bg-muted hover:bg-muted/80 text-foreground"
                     } ${className}`}
                 title={
                     isSubscribed
@@ -101,12 +101,12 @@ export default function NotificationSubscriptionStatus({
                 </div>
             )}
 
-            {/* Error Message */}
+            {/* Error Message - Only show if not denied and there's an actual error */}
             {errorMessage && !isDenied && (
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20 mb-4">
-                    <XCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 mb-4">
+                    <XCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
                     <div>
-                        <p className="text-sm font-medium text-destructive">Subscription Error</p>
+                        <p className="text-sm font-medium text-yellow-600 dark:text-yellow-500">Subscription Issue</p>
                         <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
                     </div>
                 </div>
