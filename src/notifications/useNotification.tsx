@@ -7,7 +7,8 @@ import React, {
     useEffect,
     useMemo,
     useState,
-    useCallback
+    useCallback,
+    useRef
 } from "react";
 import {
     isNotificationSupported,
@@ -55,6 +56,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     const [fcmToken, setFcmToken] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    // Prevent restoreToken from re-triggering on every isLoading state change
+    const restorationAttempted = useRef(false);
 
     // Save token to Firestore when user is authenticated
     const saveTokenToFirestore = useCallback(async (userId: string, token: string) => {
@@ -121,10 +124,11 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         registerAndSubscribe(onSubscribe, onError);
     }, [isLoading, user?.uid, saveTokenToFirestore]);
 
-    // Restore existing token on mount if permission is already granted
+    // Restore existing token on mount if permission is already granted.
+    // Uses a ref guard so it only ever runs once — avoids an infinite loop where
+    // a failed restore sets isLoading=false, which re-triggers the effect, which
+    // starts another restore, etc.
     const restoreToken = useCallback(async () => {
-        if (isLoading || isSubscribed) return;
-
         setIsLoading(true);
         setErrorMessage(null);
 
@@ -132,8 +136,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
             if (token) {
                 setIsSubscribed(true);
                 setFcmToken(token);
-
-                // Save token to Firestore if user is logged in
                 if (user?.uid) {
                     await saveTokenToFirestore(user.uid, token);
                 }
@@ -145,42 +147,39 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
         const onError = (error: Error) => {
             console.warn("[NotificationProvider] Token restoration failed (this is OK):", error.message);
-            // Don't set error message for restoration failures - just leave isSubscribed as false
-            // User can manually tap "Enable Notifications" if they want
             setIsGranted(isPermissionGranted());
             setIsDenied(isPermissionDenied());
             setIsSubscribed(false);
-            setErrorMessage(null); // No error message for restoration failures
+            setErrorMessage(null);
             setIsLoading(false);
         };
 
         restoreExistingToken(onSubscribe, onError);
-    }, [isLoading, isSubscribed, user?.uid, saveTokenToFirestore]);
+    }, [user?.uid, saveTokenToFirestore]);
 
-    // Check support and restore token if permission is already granted
+    // Check support on mount and restore token once if permission is already granted.
+    // IMPORTANT: do not add isLoading/isSubscribed/restoreToken to deps —
+    // that causes an infinite loop every time a restore attempt fails.
     useEffect(() => {
         if (typeof window === "undefined") return;
 
-        const checkSupport = () => {
-            const supported = isNotificationSupported();
-            setIsSupported(supported);
+        const supported = isNotificationSupported();
+        setIsSupported(supported);
 
-            if (supported) {
-                const granted = isPermissionGranted();
-                const denied = isPermissionDenied();
-                setIsGranted(granted);
-                setIsDenied(denied);
+        if (supported) {
+            const granted = isPermissionGranted();
+            const denied = isPermissionDenied();
+            setIsGranted(granted);
+            setIsDenied(denied);
 
-                // Try to restore existing token if permission is already granted
-                // This happens silently without showing errors if it fails
-                if (granted && !isSubscribed && !isLoading) {
-                    restoreToken();
-                }
+            // Only attempt once per mount, silently, if permission is already granted
+            if (granted && !restorationAttempted.current) {
+                restorationAttempted.current = true;
+                restoreToken();
             }
-        };
-
-        checkSupport();
-    }, [restoreToken, isSubscribed, isLoading]);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // intentionally empty — run only on mount
 
     // Re-save token when user logs in (if already subscribed)
     useEffect(() => {

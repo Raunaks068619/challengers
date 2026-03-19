@@ -1,27 +1,50 @@
 import { getMessagingInstance } from "@/lib/firebase";
 import { getToken } from "firebase/messaging";
 
-const PWA_SERVICE_WORKER_FILE_PATH = "/sw.js";
-const FALLBACK_SERVICE_WORKER_FILE_PATH = "/firebase-messaging-sw.js";
+// FCM requires a service worker with Firebase messaging code — always use this one for push
+const FIREBASE_SW_PATH = "/firebase-messaging-sw.js";
+
+/**
+ * Wait for a specific ServiceWorkerRegistration to become active.
+ * Falls back with a timeout so we never hang forever.
+ */
+async function waitForActivation(registration: ServiceWorkerRegistration, timeoutMs = 10000): Promise<void> {
+    if (registration.active) return;
+
+    return new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Service worker activation timed out")), timeoutMs);
+
+        const sw = registration.installing ?? registration.waiting;
+        if (!sw) {
+            clearTimeout(timer);
+            resolve();
+            return;
+        }
+
+        sw.addEventListener("statechange", function handler() {
+            if (sw.state === "activated") {
+                clearTimeout(timer);
+                sw.removeEventListener("statechange", handler);
+                resolve();
+            } else if (sw.state === "redundant") {
+                clearTimeout(timer);
+                sw.removeEventListener("statechange", handler);
+                reject(new Error("Service worker became redundant"));
+            }
+        });
+    });
+}
 
 export async function getNotificationServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
     if (!("serviceWorker" in navigator)) {
         throw new Error("Service workers are not supported in this browser");
     }
 
-    try {
-        const registration = await navigator.serviceWorker.register(PWA_SERVICE_WORKER_FILE_PATH);
-        await navigator.serviceWorker.ready;
-        return registration;
-    } catch (error) {
-        console.warn(
-            "[NotificationPush] Failed to register PWA service worker. Falling back to Firebase SW.",
-            error
-        );
-        const registration = await navigator.serviceWorker.register(FALLBACK_SERVICE_WORKER_FILE_PATH);
-        await navigator.serviceWorker.ready;
-        return registration;
-    }
+    // Always register the Firebase messaging SW for FCM — it has the push event handler.
+    // The PWA caching SW (sw.js) doesn't handle push events at all.
+    const registration = await navigator.serviceWorker.register(FIREBASE_SW_PATH);
+    await waitForActivation(registration);
+    return registration;
 }
 
 /**
