@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
+// Note: arrayUnion removed — token saving is handled inside requestNotificationPermission
 import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/lib/supabase";
 import { useTheme } from "next-themes";
@@ -18,7 +19,6 @@ import { generateAvatarAction, generateVisualDescriptionAction } from "@/app/act
 import { cacheProfile } from "@/app/actions/profile";
 
 import { requestNotificationPermission } from "@/lib/notifications";
-import { arrayUnion } from "firebase/firestore";
 import InstallPrompt from "@/components/InstallPrompt";
 
 export default function ProfilePage() {
@@ -253,17 +253,12 @@ export default function ProfilePage() {
                         <div className="flex flex-col gap-2 items-center mt-2">
                             <button
                                 onClick={async () => {
-                                    const token = await requestNotificationPermission();
-                                    if (token && user) {
-                                        try {
-                                            await updateDoc(doc(db, "profiles", user.uid), {
-                                                fcm_tokens: arrayUnion(token)
-                                            });
-                                            toast.success("Notifications enabled!");
-                                        } catch (error) {
-                                            console.error("Error saving token:", error);
-                                            toast.error("Failed to enable notifications");
-                                        }
+                                    // requestNotificationPermission already saves token to users/{uid}.fcmTokens
+                                    const token = await requestNotificationPermission(user?.uid);
+                                    if (token) {
+                                        toast.success("Notifications enabled!");
+                                    } else {
+                                        toast.error("Failed to enable notifications — check browser permissions");
                                     }
                                 }}
                                 className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
@@ -277,7 +272,7 @@ export default function ProfilePage() {
                                         const toastId = toast.loading("Sending test notification...");
                                         try {
                                             console.log("[Profile] Requesting notification permission...");
-                                            const token = await requestNotificationPermission();
+                                            const token = await requestNotificationPermission(user?.uid);
                                             console.log("[Profile] Token retrieved:", token);
 
                                             if (!token) {
