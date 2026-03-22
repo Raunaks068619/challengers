@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { verifyApiAuth, enforceUserMatch } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
     try {
@@ -21,6 +22,11 @@ export async function POST(req: NextRequest) {
         if (!targetChallengeId || !userId) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
+
+        const authResult = await verifyApiAuth(req);
+        if (authResult instanceof NextResponse) return authResult;
+        const matchError = enforceUserMatch(authResult.uid, userId);
+        if (matchError) return matchError;
 
         // Check if already joined
         const pq = adminDb.collection("challenge_participants")

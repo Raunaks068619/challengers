@@ -1,5 +1,18 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { Challenge, UserProfile, ChallengeParticipant } from '@/types';
+import { auth } from '@/lib/firebase';
+
+const authFetch = async (url: string, options: RequestInit = {}) => {
+    const user = auth.currentUser;
+    if (user) {
+        const token = await user.getIdToken();
+        options.headers = {
+            ...options.headers,
+            Authorization: `Bearer ${token}`
+        };
+    }
+    return fetch(url, options);
+};
 
 export const apiSlice = createApi({
     reducerPath: 'api',
@@ -10,7 +23,7 @@ export const apiSlice = createApi({
         getProfile: builder.query<UserProfile, string>({
             queryFn: async (userId) => {
                 try {
-                    const res = await fetch(`/api/profile?userId=${userId}`);
+                    const res = await authFetch(`/api/profile?userId=${userId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data: data as UserProfile };
@@ -24,7 +37,7 @@ export const apiSlice = createApi({
         updateProfile: builder.mutation<null, { userId: string; updates: Partial<UserProfile> }>({
             queryFn: async ({ userId, updates }) => {
                 try {
-                    const res = await fetch('/api/profile', {
+                    const res = await authFetch('/api/profile', {
                         method: 'POST',
                         body: JSON.stringify({ userId, updates }),
                     });
@@ -40,7 +53,7 @@ export const apiSlice = createApi({
         getActiveChallenges: builder.query<any[], string>({
             queryFn: async (userId) => {
                 try {
-                    const res = await fetch(`/api/challenges/active?userId=${userId}`);
+                    const res = await authFetch(`/api/challenges/active?userId=${userId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };
@@ -54,7 +67,7 @@ export const apiSlice = createApi({
         getChallenge: builder.query<Challenge & { participants_count: number }, string>({
             queryFn: async (challengeId) => {
                 try {
-                    const res = await fetch(`/api/challenges/${challengeId}`);
+                    const res = await authFetch(`/api/challenges/${challengeId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };
@@ -67,7 +80,7 @@ export const apiSlice = createApi({
         getParticipantData: builder.query<ChallengeParticipant | null, { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
                 try {
-                    const res = await fetch(`/api/challenges/${challengeId}/participant?userId=${userId}`);
+                    const res = await authFetch(`/api/challenges/${challengeId}/participant?userId=${userId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data: data as ChallengeParticipant };
@@ -80,7 +93,7 @@ export const apiSlice = createApi({
         joinChallenge: builder.mutation<null, { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
                 try {
-                    const res = await fetch('/api/challenges/join', {
+                    const res = await authFetch('/api/challenges/join', {
                         method: 'POST',
                         body: JSON.stringify({ challengeId, userId }),
                     });
@@ -96,7 +109,7 @@ export const apiSlice = createApi({
         joinChallengeByCode: builder.mutation<string, { code: string; userId: string }>({
             queryFn: async ({ code, userId }) => {
                 try {
-                    const res = await fetch('/api/challenges/join', {
+                    const res = await authFetch('/api/challenges/join', {
                         method: 'POST',
                         body: JSON.stringify({ code, userId }),
                     });
@@ -112,7 +125,7 @@ export const apiSlice = createApi({
         leaveChallenge: builder.mutation<null, { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
                 try {
-                    const res = await fetch('/api/challenges/leave', {
+                    const res = await authFetch('/api/challenges/leave', {
                         method: 'POST',
                         body: JSON.stringify({ challengeId, userId }),
                     });
@@ -128,7 +141,7 @@ export const apiSlice = createApi({
         createChallenge: builder.mutation<string, { challenge: Partial<Challenge>; userId: string }>({
             queryFn: async ({ challenge, userId }) => {
                 try {
-                    const res = await fetch('/api/challenges/create', {
+                    const res = await authFetch('/api/challenges/create', {
                         method: 'POST',
                         body: JSON.stringify({ challenge, userId }),
                     });
@@ -144,7 +157,7 @@ export const apiSlice = createApi({
         updateChallenge: builder.mutation<null, { challengeId: string; updates: Partial<Challenge> }>({
             queryFn: async ({ challengeId, updates }) => {
                 try {
-                    const res = await fetch(`/api/challenges/${challengeId}`, {
+                    const res = await authFetch(`/api/challenges/${challengeId}`, {
                         method: 'POST',
                         body: JSON.stringify({ updates }),
                     });
@@ -166,7 +179,7 @@ export const apiSlice = createApi({
         }>({
             queryFn: async ({ challengeId, userId, imgSrc, location, note }) => {
                 try {
-                    const response = await fetch('/api/checkin', {
+                    const response = await authFetch('/api/checkin', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ challengeId, userId, imgSrc, location, note }),
@@ -183,7 +196,7 @@ export const apiSlice = createApi({
         getUserChallengeLogs: builder.query<any[], { challengeId: string; userId: string }>({
             queryFn: async ({ challengeId, userId }) => {
                 try {
-                    const res = await fetch(`/api/logs/challenge?challengeId=${challengeId}&userId=${userId}`);
+                    const res = await authFetch(`/api/logs/challenge?challengeId=${challengeId}&userId=${userId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };
@@ -196,7 +209,7 @@ export const apiSlice = createApi({
         getUserWeeklyLogs: builder.query<any[], string>({
             queryFn: async (userId) => {
                 try {
-                    const res = await fetch(`/api/logs/weekly?userId=${userId}`);
+                    const res = await authFetch(`/api/logs/weekly?userId=${userId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };
@@ -209,7 +222,7 @@ export const apiSlice = createApi({
         getAllParticipants: builder.query<UserProfile[], string>({
             queryFn: async (userId) => {
                 try {
-                    const res = await fetch(`/api/participants?userId=${userId}`);
+                    const res = await authFetch(`/api/participants?userId=${userId}`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };
@@ -222,7 +235,7 @@ export const apiSlice = createApi({
         getChallengePointsHistory: builder.query<any[], string>({
             queryFn: async (challengeId) => {
                 try {
-                    const res = await fetch(`/api/challenges/${challengeId}/history`);
+                    const res = await authFetch(`/api/challenges/${challengeId}/history`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };
@@ -235,7 +248,7 @@ export const apiSlice = createApi({
         getChallengeParticipantsPointsHistory: builder.query<{ history: any[]; users: { id: string; name: string }[] }, string>({
             queryFn: async (challengeId) => {
                 try {
-                    const res = await fetch(`/api/challenges/${challengeId}/history?type=participants`);
+                    const res = await authFetch(`/api/challenges/${challengeId}/history?type=participants`);
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
                     return { data };

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { verifyApiAuth, enforceUserMatch } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
@@ -8,6 +9,11 @@ export async function GET(req: NextRequest) {
     if (!userId) {
         return NextResponse.json({ error: "Missing userId" }, { status: 400 });
     }
+
+    const authResult = await verifyApiAuth(req);
+    if (authResult instanceof NextResponse) return authResult;
+    const matchError = enforceUserMatch(authResult.uid, userId);
+    if (matchError) return matchError;
 
     try {
         // 1. Get participant entries

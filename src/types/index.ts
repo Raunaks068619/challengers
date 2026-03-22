@@ -1,8 +1,16 @@
+export interface Waypoint {
+    lat: number;
+    lng: number;
+    timestamp: number;
+    accuracy?: number;
+    altitude?: number | null;
+}
+
 export interface Challenge {
     id?: string;
     title: string;
     description: string;
-    creator_id?: string | null; // Renamed from manager_id
+    creator_id?: string | null;
     start_date: string;
     end_date: string;
     time_window_start: string | null;
@@ -15,10 +23,38 @@ export interface Challenge {
     location_lat?: number | null;
     location_lng?: number | null;
     location_radius?: number; // in meters
-    locations?: { lat: number; lng: number; radius: number; address?: string }[]; // Multiple locations support
+    locations?: { lat: number; lng: number; radius: number; address?: string }[];
     join_code?: string;
     banner_url?: string | null;
     rest_days?: number[]; // 0=Sunday, 1=Monday, etc.
+    // Activity tracking (Strava-style route challenges)
+    activity_tracking?: boolean;
+    activity_type?: "run" | "walk" | "cycle" | "any";
+    min_distance_m?: number;   // minimum metres required to count as a valid check-in
+    min_duration_s?: number;   // minimum seconds required to count as a valid check-in
+}
+
+export interface DailyLog {
+    id?: string;
+    challenge_id: string;
+    user_id: string;
+    date: string;
+    status: "completed" | "missed";
+    created_at: string;
+    proof_url?: string;
+    lat?: number | null;
+    lng?: number | null;
+    verified: boolean;
+    location_verified?: boolean;
+    distance_from_fence_m?: number;
+    matched_fence?: string;
+    note?: string;
+    // Activity tracking data (populated when challenge.activity_tracking === true)
+    route?: Waypoint[];
+    distance_m?: number;
+    duration_s?: number;
+    avg_pace_s_per_km?: number | null;
+    activity_type?: string;
 }
 
 export interface UserProfile {
@@ -48,6 +84,5 @@ export interface ChallengeParticipant {
     streak_current: number;
     streak_best: number;
     is_active: boolean;
-
     points_history?: { date: string; points: number; taskStatus?: 'completed' | 'missed' }[];
 }

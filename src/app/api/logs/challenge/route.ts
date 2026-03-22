@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { verifyApiAuth, enforceUserMatch } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
@@ -9,6 +10,11 @@ export async function GET(req: NextRequest) {
     if (!userId || !challengeId) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const authResult = await verifyApiAuth(req);
+    if (authResult instanceof NextResponse) return authResult;
+    const matchError = enforceUserMatch(authResult.uid, userId);
+    if (matchError) return matchError;
 
     try {
         const q = adminDb.collection("daily_logs")

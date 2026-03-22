@@ -32,7 +32,7 @@ export const viewport: Viewport = {
 };
 
 import NotificationManager from "@/components/NotificationManager";
-
+import GeolocationManager from "@/components/GeolocationManager";
 import ThemeSync from "@/components/ThemeSync";
 
 export default function RootLayout({
@@ -55,6 +55,7 @@ export default function RootLayout({
                 <NotificationProvider>
                   <ThemeSync />
                   <NotificationManager />
+                  <GeolocationManager />
                   <ForegroundNotificationListener />
                   <div>
                     {children}

@@ -1,7 +1,4 @@
-// NOTE: ioredis is NOT compatible with Next.js Edge runtime (where middleware runs)
-// This causes errors like "Cannot read properties of undefined (reading 'charCodeAt')"
-// TODO: Replace with Edge-compatible Redis like @vercel/kv or @upstash/redis
-// import redis from './redis';
+import redis from './redis';
 
 export interface RateLimitResult {
     success: boolean;
@@ -16,38 +13,53 @@ export interface RateLimitConfig {
 }
 
 /**
- * Rate limiting using sliding window counter algorithm
+ * Rate limiting using fixed window counter algorithm via ioredis
  * @param identifier - User ID or IP address
  * @param limit - Maximum requests allowed
- * @param window - Time window in seconds (default: 60)
+ * @param windowSecs - Time window in seconds (default: 60)
  */
 export async function rateLimit(
     identifier: string,
     limit: number,
-    window: number = 60
+    windowSecs: number = 60
 ): Promise<RateLimitResult> {
-    // Temporarily disable Redis until we migrate to Edge-compatible solution
-    const redis = null;
-
-    // Fallback if Redis is unavailable
     if (!redis) {
-        console.warn('[RateLimit] Redis unavailable, allowing request through');
         return {
             success: true,
             remaining: limit,
-            reset: Date.now() + window * 1000,
+            reset: Date.now() + windowSecs * 1000,
             limit
         };
     }
 
-    // TODO: When migrating to Edge-compatible Redis (e.g., @upstash/redis), 
-    // uncomment and update the code below
-    return {
-        success: true,
-        remaining: limit,
-        reset: Date.now() + window * 1000,
-        limit
-    };
+    try {
+        const key = `ratelimit:${identifier}`;
+        const current = await redis.incr(key);
+
+        if (current === 1) {
+            await redis.expire(key, windowSecs);
+        }
+
+        const success = current <= limit;
+        const remaining = success ? limit - current : 0;
+        const reset = Date.now() + windowSecs * 1000;
+
+        return {
+            success,
+            limit,
+            remaining,
+            reset
+        };
+    } catch (error) {
+        console.error('[RateLimit] Redis execution error:', error);
+        // Fail open to maintain availability
+        return {
+            success: true,
+            remaining: limit,
+            reset: Date.now() + windowSecs * 1000,
+            limit
+        };
+    }
 }
 
 /**

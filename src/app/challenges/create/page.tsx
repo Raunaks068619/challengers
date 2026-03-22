@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import Link from "next/link";
-import { ChevronLeft, Loader2, Sparkles, MapPin } from "lucide-react";
+import { ChevronLeft, Loader2, Sparkles, MapPin, Activity } from "lucide-react";
 import { toast } from "sonner";
 import LocationManager from "@/components/LocationManager";
 
@@ -36,6 +36,12 @@ export default function CreateChallengePage() {
 
     // Rest Days State
     const [restDays, setRestDays] = useState<number[]>([]);
+
+    // Activity tracking State
+    const [activityTracking, setActivityTracking] = useState(false);
+    const [activityType, setActivityType] = useState<"run" | "walk" | "cycle" | "any">("run");
+    const [minDistanceKm, setMinDistanceKm] = useState<string>("5");
+    const [minDurationMin, setMinDurationMin] = useState<string>("0");
 
     const handleGenerate = async () => {
         if (!prompt.trim()) return;
@@ -138,6 +144,13 @@ export default function CreateChallengePage() {
                 location_radius: requiresLocation && locations.length > 0 ? locations[0].radius : 100,
                 banner_url: bannerUrl,
                 rest_days: restDays,
+                // Activity tracking
+                activity_tracking: activityTracking,
+                ...(activityTracking && {
+                    activity_type: activityType,
+                    min_distance_m: parseFloat(minDistanceKm) > 0 ? parseFloat(minDistanceKm) * 1000 : 0,
+                    min_duration_s: parseInt(minDurationMin) > 0 ? parseInt(minDurationMin) * 60 : 0,
+                }),
             };
 
             await createChallenge({ challenge: challengeData, userId: user.uid }).unwrap();
@@ -341,6 +354,75 @@ export default function CreateChallengePage() {
                                                 value={preview.timeWindowEnd}
                                                 onChange={(e) => setPreview({ ...preview, timeWindowEnd: e.target.value })}
                                                 className="w-full bg-transparent border-b border-border py-2 focus:outline-none focus:border-primary text-foreground text-sm transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Activity Tracking */}
+                            <div className="pt-4 border-t border-border space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Activity className="w-4 h-4 text-primary" />
+                                        <label className="text-sm font-medium text-foreground">Activity Tracking?</label>
+                                    </div>
+                                    <button
+                                        onClick={() => setActivityTracking(!activityTracking)}
+                                        className={`w-10 h-5 rounded-full transition-colors relative ${activityTracking ? 'bg-primary' : 'bg-muted'}`}
+                                    >
+                                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${activityTracking ? 'translate-x-5' : ''}`} />
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">Track GPS routes like Strava. Users check in by completing a run/walk.</p>
+
+                                {activityTracking && (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 bg-muted/40 rounded-xl p-3">
+                                        {/* Activity type */}
+                                        <div>
+                                            <label className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block mb-2">Activity Type</label>
+                                            <div className="grid grid-cols-4 gap-1.5">
+                                                {(["run", "walk", "cycle", "any"] as const).map((type) => (
+                                                    <button
+                                                        key={type}
+                                                        onClick={() => setActivityType(type)}
+                                                        className={`py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${activityType === type ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                                                    >
+                                                        {type}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Min distance */}
+                                        <div>
+                                            <label className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block mb-1">
+                                                Min Distance (km) <span className="normal-case font-normal">— 0 = no minimum</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="0.5"
+                                                value={minDistanceKm}
+                                                onChange={(e) => setMinDistanceKm(e.target.value)}
+                                                className="w-full bg-transparent border-b border-border py-2 focus:outline-none focus:border-primary text-foreground text-sm transition-colors"
+                                                placeholder="e.g. 5"
+                                            />
+                                        </div>
+
+                                        {/* Min duration */}
+                                        <div>
+                                            <label className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider block mb-1">
+                                                Min Duration (min) <span className="normal-case font-normal">— 0 = no minimum</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                step="5"
+                                                value={minDurationMin}
+                                                onChange={(e) => setMinDurationMin(e.target.value)}
+                                                className="w-full bg-transparent border-b border-border py-2 focus:outline-none focus:border-primary text-foreground text-sm transition-colors"
+                                                placeholder="e.g. 30"
                                             />
                                         </div>
                                     </div>

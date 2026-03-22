@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb, adminMessaging } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { verifyApiAuth, enforceUserMatch } from "@/lib/auth";
 
 export async function POST(request: Request) {
     let text, conversationId, senderId;
@@ -14,10 +15,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // Verify sender (optional but recommended)
-        // const token = request.headers.get("Authorization")?.split("Bearer ")[1];
-        // const decodedToken = await adminAuth.verifyIdToken(token || "");
-        // if (decodedToken.uid !== senderId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const authResult = await verifyApiAuth(request as any);
+        if (authResult instanceof NextResponse) return authResult;
+        const matchError = enforceUserMatch(authResult.uid, senderId);
+        if (matchError) return matchError;
 
         // 1. Add message to Firestore
         const messageRef = await adminDb
